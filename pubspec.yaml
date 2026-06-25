@@ -1,0 +1,28 @@
+name: papantulis_chat
+description: Aplikasi Papan Tulis Chat dan Mading Estetik menggunakan Flutter & Firebase.
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # --- UTAMA: FIREBASE ---
+  firebase_core: ^3.0.0
+  cloud_firestore: ^5.6.12
+
+  # --- IKON TAMBAHAN ---
+  cupertino_icons: ^1.0.6
+  firebase_auth: ^5.7.0
+  zego_uikit_prebuilt_call: ^4.16.28
+  zego_uikit: ^2.28.14
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true

@@ -1,0 +1,29 @@
+{
+    "project_info": {
+        "project_number": "919685453324",
+        "project_id": "cetan-b0613",
+        "storage_bucket": "cetan-b0613.firebasestorage.app"
+    },
+    "client": [
+        {
+            "client_info": {
+                "mobilesdk_app_id": "1:919685453324:android:d281bec4e1502e09c04029",
+                "android_client_info": {
+                    "package_name": "com.saifullah.cetan"
+                }
+            },
+            "oauth_client": [],
+            "api_key": [
+                {
+                    "current_key": "AIzaSyDAEjxZwBR2spPGxHFKf7fO-uLdm5AoTFk"
+                }
+            ],
+            "services": {
+                "appinvite_service": {
+                    "other_platform_oauth_client": []
+                }
+            }
+        }
+    ],
+    "configuration_version": "1"
+}
