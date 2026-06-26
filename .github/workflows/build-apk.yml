@@ -31,7 +31,7 @@ jobs:
       run: flutter clean
 
     - name: Rakit Jadi APK Release
-      run: flutter build apk --release
+      run: flutter build apk --release --performance --gradle-org.gradle.jvmargs="-Xmx2500m -XX:MaxMetaspaceSize=512m"
 
     - name: Simpan File APK
       uses: actions/upload-artifact@v4
