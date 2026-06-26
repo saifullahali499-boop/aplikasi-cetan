@@ -31,7 +31,10 @@ jobs:
       run: flutter clean
 
     - name: Rakit Jadi APK Release
-      run: flutter build apk --release --performance --gradle-org.gradle.jvmargs="-Xmx2500m -XX:MaxMetaspaceSize=512m"
+      env:
+        # Ini cara paling aman menyuntikkan batas RAM di semua versi Flutter!
+        GRADLE_OPTS: "-Dorg.gradle.jvmargs=-Xmx2500m -XX:MaxMetaspaceSize=512m"
+      run: flutter build apk --release
 
     - name: Simpan File APK
       uses: actions/upload-artifact@v4
