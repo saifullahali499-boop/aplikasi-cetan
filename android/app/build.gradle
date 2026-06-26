@@ -44,7 +44,7 @@ android {
 
     defaultConfig {
         applicationId "com.saifullah.cetan"
-        minSdk 22 // Firebase minimal butuh SDK 22
+        minSdk 23 // Firebase minimal butuh SDK 23
         targetSdk flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
