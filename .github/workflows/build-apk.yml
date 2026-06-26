@@ -18,10 +18,9 @@ jobs:
         distribution: 'zulu'
         java-version: '17'
 
-    - name: Pasang Flutter Terkontrol
+    - name: Pasang Flutter Terbaru
       uses: subosito/flutter-action@v2
       with:
-        flutter-version: '3.22.0'
         channel: 'stable'
 
     - name: Ambil Package Flutter
