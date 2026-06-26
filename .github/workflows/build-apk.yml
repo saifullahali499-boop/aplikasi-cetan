@@ -18,9 +18,10 @@ jobs:
         distribution: 'zulu'
         java-version: '17'
 
-    - name: Pasang Flutter Terbaru
+    - name: Pasang Flutter Versi Kompatibel
       uses: subosito/flutter-action@v2
       with:
+        flutter-version: '3.19.6'
         channel: 'stable'
 
     - name: Ambil Package Flutter
