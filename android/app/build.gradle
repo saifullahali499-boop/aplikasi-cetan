@@ -53,6 +53,9 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
+// TAMBAHKAN ATAU UBAH DUA BARIS DI BAWAH INI MENJADI false:
+            minifyEnabled false
+            shrinkResources false
         }
     }
 }
