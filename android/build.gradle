@@ -7,7 +7,8 @@ buildscript {
     }
     dependencies {
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        classpath 'com.google.gms:google-services:4.3.15'
+        // Kita upgrade ke 4.4.1 agar sinkron dengan Flutter 3.22
+        classpath 'com.google.gms:google-services:4.4.1'
     }
 }
 
