@@ -1,15 +1,12 @@
-ext.kotlin_version = '1.9.24'
-
 buildscript {
+    ext.kotlin_version = '1.9.24'
+    
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        // INI DIA JANGKAR KOTLIN YANG HILANG DARI TADI!
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        
-        // Jalur Firebase Google Services
         classpath 'com.google.gms:google-services:4.3.15'
     }
 }
