@@ -1,11 +1,12 @@
+ext.kotlin_version = '1.9.24' // <-- WAJIB DI SINI (Paling atas & di luar blok apa pun)
+
 buildscript {
-    ext.kotlin_version = '1.9.24'
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
-        // Ini dia jalur rahasia yang dicari oleh file app/build.gradle Anda!
+        // Jalur Firebase Google Services
         classpath 'com.google.gms:google-services:4.3.15'
     }
 }
