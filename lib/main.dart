@@ -12,21 +12,30 @@ import 'screens/profile_screen.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  if (kIsWeb) {
-    // Menghubungkan Firebase menggunakan data asli dari Firebase Console Anda saat di mode Web Browser
-    await Firebase.initializeApp(
-      options: const FirebaseOptions(
-        apiKey: "AIzaSyBt7AcWYEIeLmoVkC2sThS0kEgDz_4tnDc",
-        authDomain: "cetan-b0613.firebaseapp.com",
-        projectId: "cetan-b0613",
-        storageBucket: "cetan-b0613.firebasestorage.app",
-        messagingSenderId: "919685453324",
-        appId: "1:919685453324:web:7665ce0fd1656182c04029",
-      ),
-    );
-  } else {
-    await Firebase.initializeApp();
+  // === JARING PENGAMAN TRY-CATCH DIMULAI DI SINI ===
+  try {
+    if (kIsWeb) {
+      // Menghubungkan Firebase menggunakan data asli dari Firebase Console Anda saat di mode Web Browser
+      await Firebase.initializeApp(
+        options: const FirebaseOptions(
+          apiKey: "AIzaSyBt7AcWYEIeLmoVkC2sThS0kEgDz_4tnDc",
+          authDomain: "cetan-b0613.firebaseapp.com",
+          projectId: "cetan-b0613",
+          storageBucket: "cetan-b0613.firebasestorage.app",
+          messagingSenderId: "919685453324",
+          appId: "1:919685453324:web:7665ce0fd1656182c04029",
+        ),
+      );
+      print("Firebase Web Berhasil Konek!");
+    } else {
+      await Firebase.initializeApp();
+      print("Firebase Android Berhasil Konek!");
+    }
+  } catch (e) {
+    // Jika Firebase error/gagal konek, ditangkap di sini agar aplikasi Android tidak force close
+    print("Waduh, Firebase gagal inisialisasi tapi aplikasi selamat dari crash: $e");
   }
+  // === JARING PENGAMAN TRY-CATCH SELESAI ===
   
   runApp(const PapanTulisChatApp());
 }
