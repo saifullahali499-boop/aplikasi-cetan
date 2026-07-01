@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb; // PENTING: Untuk membedakan Android vs Web
 import '../main.dart'; // Mengambil MainTabController dari main.dart
 
 class LoginScreen extends StatefulWidget {
@@ -19,7 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String? _verificationId;
 
-  // 1. FUNGSI UNTUK MEMINTA SMS OTP
+  // 1. FUNGSI UNTUK MEMINTA SMS OTP (Sudah Diperbaiki untuk Web & Android)
   void _sendOtp() async {
     final phone = _phoneController.text.trim();
     if (phone.isEmpty) {
@@ -31,21 +32,69 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    try {
-      ConfirmationResult confirmationResult = await _auth.signInWithPhoneNumber(phone);
-      setState(() {
-        _isOtpSent = true;
-        _verificationId = confirmationResult.verificationId;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kode OTP berhasil dikirim via SMS!')),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal mengirim SMS: ${e.toString().split(']').last}')),
-      );
-    } finally {
-      setState(() => _isLoading = false);
+    if (kIsWeb) {
+      // === JALUR KHUSUS WEB BROWSER ===
+      try {
+        ConfirmationResult confirmationResult = await _auth.signInWithPhoneNumber(phone);
+        setState(() {
+          _isOtpSent = true;
+          _verificationId = confirmationResult.verificationId;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Kode OTP berhasil dikirim via SMS (Web)!')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal mengirim SMS Web: ${e.toString().split(']').last}')),
+        );
+      } finally {
+        setState(() => _isLoading = false);
+      }
+    } else {
+      // === JALUR KHUSUS NATIVE ANDROID (APK) ===
+      try {
+        await _auth.verifyPhoneNumber(
+          phoneNumber: phone,
+          verificationCompleted: (PhoneAuthCredential credential) async {
+            // Otomatis bypass ketik OTP jika Android mendeteksi SMS-nya sendiri (Instant Auth)
+            UserCredential userCredential = await _auth.signInWithCredential(credential);
+            final name = _nameController.text.trim();
+            if (name.isNotEmpty) {
+              await userCredential.user?.updateDisplayName(name);
+            }
+            if (mounted) {
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const MainTabController()),
+              );
+            }
+          },
+          verificationFailed: (FirebaseAuthException e) {
+            setState(() => _isLoading = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Gagal mengirim SMS Android: ${e.message}')),
+            );
+          },
+          codeSent: (String verificationId, int? resendToken) {
+            setState(() {
+              _isOtpSent = true;
+              _verificationId = verificationId;
+              _isLoading = false; // Matikan loading saat form OTP siap diisi
+            });
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Kode OTP berhasil dikirim via SMS!')),
+            );
+          },
+          codeAutoRetrievalTimeout: (String verificationId) {
+            _verificationId = verificationId;
+          },
+        );
+      } catch (e) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Terjadi kesalahan sistem: $e')),
+        );
+      }
     }
   }
 
