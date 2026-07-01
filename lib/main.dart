@@ -67,7 +67,8 @@ class MainTabController extends StatefulWidget {
 }
 
 class _MainTabControllerState extends State<MainTabController> {
-  int _currentIndex = 2; 
+  // Berubah jadi 3 agar default pertama buka tetap di halaman Chat (karena Chat bergeser ke indeks 3)
+  int _currentIndex = 3; 
   late PageController _pageController;
 
   @override
@@ -109,6 +110,7 @@ class _MainTabControllerState extends State<MainTabController> {
           children: const [
             PembaruanScreen(), 
             PanggilanScreen(), 
+            KantinScreen(), // <-- 1. HALAMAN KANTIN BARU DISISIPKAN DI SINI
             ChatListScreen(), 
             ProfileScreen(),
           ],
@@ -150,10 +152,42 @@ class _MainTabControllerState extends State<MainTabController> {
                 items: const [
                   BottomNavigationBarItem(icon: Icon(Icons.blur_circular), label: 'Pembaruan'),
                   BottomNavigationBarItem(icon: Icon(Icons.call_outlined), label: 'Panggilan'),
+                  BottomNavigationBarItem(icon: Icon(Icons.storefront_outlined), label: 'Kantin'), // <-- 2. TOMBOL KANTIN DISISIPKAN DI SINI
                   BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
                   BottomNavigationBarItem(icon: Icon(Icons.account_circle_outlined), label: 'Anda'),
                 ],
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// === TEMPAT PENAMPUNG HALAMAN KANTIN (DUMMY SCREEN) ===
+// Nanti jika kamu sudah membuat file kantin_screen.dart tersendiri, class ini bisa kamu hapus.
+class KantinScreen extends StatelessWidget {
+  const KantinScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.storefront_outlined, size: 80, color: Colors.white70),
+            SizedBox(height: 16),
+            Text(
+              'Menu Kantin',
+              style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text(
+              'Halaman ini sedang dalam pengembangan.',
+              style: TextStyle(color: Colors.white60, fontSize: 14),
             ),
           ],
         ),
