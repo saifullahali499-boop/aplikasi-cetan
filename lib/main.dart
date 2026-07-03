@@ -11,11 +11,9 @@ import 'screens/profile_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
-  // === JARING PENGAMAN TRY-CATCH DIMULAI DI SINI ===
+  // === JARING PENGAMAN TRY-CATCH ASLI ANDA TETAP TERJAGA ===
   try {
     if (kIsWeb) {
-      // Menghubungkan Firebase menggunakan data asli dari Firebase Console Anda saat di mode Web Browser
       await Firebase.initializeApp(
         options: const FirebaseOptions(
           apiKey: "AIzaSyBt7AcWYEIeLmoVkC2sThS0kEgDz_4tnDc",
@@ -32,11 +30,8 @@ void main() async {
       print("Firebase Android Berhasil Konek!");
     }
   } catch (e) {
-    // Jika Firebase error/gagal konek, ditangkap di sini agar aplikasi Android tidak force close
     print("Waduh, Firebase gagal inisialisasi tapi aplikasi selamat dari crash: $e");
   }
-  // === JARING PENGAMAN TRY-CATCH SELESAI ===
-  
   runApp(const PapanTulisChatApp());
 }
 
@@ -46,11 +41,14 @@ class PapanTulisChatApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      title: 'CetTan',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        scaffoldBackgroundColor: Colors.transparent, 
+        scaffoldBackgroundColor: Colors.transparent,
+        // GLOBAL THEME BERUBAH MENJADI TEKS GELAP SKETSA PENSIL
         textTheme: const TextTheme(
-          bodyLarge: TextStyle(color: Colors.white70),
+          bodyLarge: TextStyle(color: Color(0xFF2C2C2C), fontWeight: FontWeight.w500),
+          bodyMedium: TextStyle(color: Color(0xFF555555)),
         ),
       ),
       home: const LoginScreen(),
@@ -58,7 +56,7 @@ class PapanTulisChatApp extends StatelessWidget {
   }
 }
 
-// === KONTROLLER NAVIGASI UTAMA (TAB CONTROLLER) ===
+// === KONTROLLER NAVIGASI UTAMA (TOMBOL MULUS DIGESER + PERPINDAHAN INSTAN) ===
 class MainTabController extends StatefulWidget {
   const MainTabController({super.key});
 
@@ -67,9 +65,12 @@ class MainTabController extends StatefulWidget {
 }
 
 class _MainTabControllerState extends State<MainTabController> {
-  // Berubah jadi 3 agar default pertama buka tetap di halaman Chat (karena Chat bergeser ke indeks 3)
-  int _currentIndex = 3; 
+  int _currentIndex = 3; // Default langsung membuka halaman Chat Obrolan
   late PageController _pageController;
+
+  // Variabel penyimpan koordinat tombol (X dan Y)
+  double? _x;
+  double? _y;
 
   @override
   void initSetting() {
@@ -90,72 +91,89 @@ class _MainTabControllerState extends State<MainTabController> {
 
   @override
   Widget build(BuildContext context) {
+    const Color darkTextColor = Color(0xFF2D2B2A);
+    final screenSize = MediaQuery.of(context).size;
+
+    // Mengatur posisi awal tombol di pojok kanan bawah saat pertama kali dibuka
+    _x ??= screenSize.width - 72;   
+    _y ??= screenSize.height - 120; 
+
     return Container(
+      // LATAR BELAKANG GRADASI KERTAS SKETSA TERANG
       decoration: const BoxDecoration(
         gradient: RadialGradient(
-          center: Alignment(-0.2, -0.3),
-          radius: 1.5,
-          colors: [Color(0xFF2E5B35), Color(0xFF1E3F24), Color(0xFF152E19)],
-          stops: [0.0, 0.6, 1.0],
+          center: Alignment(0.0, -0.2),
+          radius: 1.3,
+          colors: [Color(0xFFFDFDFD), Color(0xFFF6F6F4), Color(0xFFEAEAEA)],
+          stops: [0.0, 0.5, 1.0],
         ),
       ),
       child: Scaffold(
-        body: PageView(
-          controller: _pageController,
-          onPageChanged: (index) {
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          children: const [
-            PembaruanScreen(), 
-            PanggilanScreen(), 
-            KantinScreen(), // <-- 1. HALAMAN KANTIN BARU DISISIPKAN DI SINI
-            ChatListScreen(), 
-            ProfileScreen(),
-          ],
-        ),
-        bottomNavigationBar: Column(
-          mainAxisSize: MainAxisSize.min,
+        backgroundColor: Colors.transparent, 
+        
+        // Stack utama agar tombol bisa melayang dan digeser mulus di atas halaman
+        body: Stack(
           children: [
-            Container(
-              height: 12,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                color: const Color(0xFF8B5A2B),
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.4), blurRadius: 4, offset: const Offset(0, -2))],
-                border: const Border(
-                  top: BorderSide(color: Color(0xAFA0522D), width: 1.5),
-                  bottom: BorderSide(color: Color(0xFF5C3A21), width: 1.5),
-                ),
-              ),
+            PageView(
+              controller: _pageController,
+              onPageChanged: (index) {
+                setState(() {
+                  _currentIndex = index;
+                });
+              },
+              children: const [
+                PembaruanScreen(),
+                PanggilanScreen(),
+                KantinScreen(),
+                ChatListScreen(),
+                ProfileScreen(),
+              ],
             ),
-            Container(
-              color: const Color(0xFF1E3F24),
-              child: BottomNavigationBar(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                type: BottomNavigationBarType.fixed,
-                selectedItemColor: Colors.white,
-                unselectedItemColor: Colors.white38,
-                currentIndex: _currentIndex,
-                onTap: (index) {
+
+            // 🛠️ TOMBOL NAVIGASI YANG BISA DIGESER DENGAN MULUS
+            Positioned(
+              left: _x,
+              top: _y,
+              child: Draggable(
+                // feedback: Wujud tombol saat digeser (ditambah Material agar bayangan & transisi mulus)
+                feedback: _buildButtonDesign(isDragging: true),
+                // childWhenDragging: Membuat tombol asli tidak berbayang ganda di tempat lama saat ditarik
+                childWhenDragging: const SizedBox.shrink(),
+                // onDragEnd: Mengunci posisi baru tombol dengan mulus tepat saat jari dilepas
+                onDragEnd: (dragDetails) {
                   setState(() {
-                    _currentIndex = index;
-                    _pageController.animateToPage(
-                      index,
-                      duration: const Duration(milliseconds: 300),
-                      curve: Curves.easeInOut,
-                    );
+                    _x = dragDetails.offset.dx;
+                    _y = dragDetails.offset.dy;
+
+                    // JARING PENGAMAN: Menjaga tombol tidak keluar dari batas layar HP Anda
+                    if (_x! < 16) _x = 16; 
+                    if (_x! > screenSize.width - 72) _x = screenSize.width - 72; 
+                    if (_y! < 40) _y = 40; 
+                    if (_y! > screenSize.height - 100) _y = screenSize.height - 100; 
                   });
                 },
-                items: const [
-                  BottomNavigationBarItem(icon: Icon(Icons.blur_circular), label: 'Pembaruan'),
-                  BottomNavigationBarItem(icon: Icon(Icons.call_outlined), label: 'Panggilan'),
-                  BottomNavigationBarItem(icon: Icon(Icons.storefront_outlined), label: 'Kantin'), // <-- 2. TOMBOL KANTIN DISISIPKAN DI SINI
-                  BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
-                  BottomNavigationBarItem(icon: Icon(Icons.account_circle_outlined), label: 'Anda'),
-                ],
+                
+                // Saat diklik biasa (bukan digeser), menu popup akan muncul otomatis mengikuti posisi tombol
+                child: PopupMenuButton<int>(
+                  tooltip: 'Navigasi Menu',
+                  onSelected: (index) {
+                    setState(() {
+                      _currentIndex = index;
+                      
+                      // ⚡ PERPINDAHAN INSTAN: Menggunakan jumpToPage tanpa animasi geser layar
+                      _pageController.jumpToPage(index); 
+                    });
+                  },
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: _buildButtonDesign(isDragging: false),
+                  itemBuilder: (context) => [
+                    _buildPopupItem(0, Icons.blur_circular, 'Mading Status', darkTextColor),
+                    _buildPopupItem(1, Icons.call_outlined, 'Riwayat Kapur', darkTextColor),
+                    _buildPopupItem(2, Icons.storefront_outlined, 'Kantin Lokal', darkTextColor),
+                    _buildPopupItem(3, Icons.chat_bubble_outline, 'Chat Obrolan', darkTextColor),
+                    _buildPopupItem(4, Icons.account_circle_outlined, 'Profil Anda', darkTextColor),
+                  ],
+                ),
               ),
             ),
           ],
@@ -163,31 +181,74 @@ class _MainTabControllerState extends State<MainTabController> {
       ),
     );
   }
+
+  // Fungsi desain lingkaran boks tombol hitam kustom
+  Widget _buildButtonDesign({required bool isDragging}) {
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          color: Colors.black,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDragging ? 0.4 : 0.26),
+              blurRadius: isDragging ? 14 : 6,
+              offset: Offset(0, isDragging ? 8 : 3),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.more_vert, color: Colors.white, size: 28),
+      ),
+    );
+  }
+
+  // Helper untuk merapikan layout baris item popup menu
+  PopupMenuItem<int> _buildPopupItem(int value, IconData icon, String text, Color textColor) {
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(icon, color: textColor, size: 20),
+          const SizedBox(width: 12),
+          Text(text, style: const TextStyle(fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
 }
 
-// === TEMPAT PENAMPUNG HALAMAN KANTIN (DUMMY SCREEN) ===
-// Nanti jika kamu sudah membuat file kantin_screen.dart tersendiri, class ini bisa kamu hapus.
+// === TEMPAT PENAMPUNG HALAMAN KANTIN ===
 class KantinScreen extends StatelessWidget {
   const KantinScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
+    return Scaffold(
       backgroundColor: Colors.transparent,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.storefront_outlined, size: 80, color: Colors.white70),
-            SizedBox(height: 16),
-            Text(
-              'Menu Kantin',
-              style: TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFF2C2C2C), width: 1.5),
+              ),
+              child: const Icon(Icons.storefront_outlined, size: 60, color: Color(0xFF2C2C2C)),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 20),
+            const Text(
+              'MENU KANTIN LOKAL',
+              style: TextStyle(color: Color(0xFF2C2C2C), fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+            ),
+            const SizedBox(height: 8),
             Text(
-              'Halaman ini sedang dalam pengembangan.',
-              style: TextStyle(color: Colors.white60, fontSize: 14),
+              'Fitur kemitraan kafe sedang dipersiapkan.',
+              style: TextStyle(color: const Color(0xFF2C2C2C).withOpacity(0.6), fontSize: 14),
             ),
           ],
         ),

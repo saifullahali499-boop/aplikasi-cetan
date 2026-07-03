@@ -14,7 +14,6 @@ class _AuthScreenState extends State<AuthScreen> {
   final _otpController = TextEditingController();
   final _nameController = TextEditingController();
   final _auth = FirebaseAuth.instance;
-  
   bool _isOtpSent = false;
   bool _isLoading = false;
   String? _verificationId;
@@ -71,7 +70,6 @@ class _AuthScreenState extends State<AuthScreen> {
       await userCredential.user?.updateDisplayName(name);
 
       if (mounted) {
-        // DIARAHKAN KE CONTROLLER NAVIGASI UTAMA DI MAIN.DART
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const MainTabController()),
@@ -88,120 +86,125 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: RadialGradient(
-          center: Alignment(0.3, 0.4), 
-          radius: 1.5, 
-          colors: [Color(0xFF2E5B35), Color(0xFF1E3F24), Color(0xFF152E19)],
+    const Color darkTextColor = Color(0xFF2D2B2A);
+    const Color backgroundColor = Color(0xFFF4F5F7);
+    const Color accentColor = Color(0xFF8B5A2B);
+
+    return Scaffold(
+      backgroundColor: backgroundColor, // Mengganti background gradien hijau dengan abu terang
+      // 1. PENAMBAHAN: AppBar atas berwarna hitam pekat serasi dengan screen lain
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        title: const Text(
+          'OTENTIKASI MASUK',
+          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.2),
         ),
       ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        body: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
-            child: Card(
-              color: Colors.white.withOpacity(0.05),
-              shape: RoundedRectangleBorder(
-                side: const BorderSide(color: Colors.white24),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const CircleAvatar(
-                      radius: 40,
-                      backgroundColor: Color(0xFF8B5A2B),
-                      child: Icon(Icons.phone_android_outlined, size: 45, color: Colors.white),
-                    ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'MASUK VIA NOMOR HP',
-                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Card(
+            color: Colors.white, // Card diubah menjadi putih bersih solid
+            elevation: 3, // Efek bayangan halus kartu
+            shape: RoundedRectangleBorder(
+              side: const BorderSide(color: Colors.black12), // Border abu-abu tipis
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircleAvatar(
+                    radius: 40,
+                    backgroundColor: accentColor,
+                    child: Icon(Icons.phone_android_outlined, size: 45, color: Colors.white),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'MASUK VIA NOMOR HP',
+                    style: TextStyle(color: darkTextColor, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                  ),
+                  const SizedBox(height: 24),
+                  
+                  if (!_isOtpSent) ...[
+                    TextField(
+                      controller: _phoneController,
+                      keyboardType: TextInputType.phone,
+                      style: const TextStyle(color: darkTextColor), // Teks ketikan berwarna charcoal
+                      decoration: InputDecoration(
+                        labelText: 'Nomor HP (Contoh: +62812345678)',
+                        labelStyle: const TextStyle(color: Colors.black54),
+                        prefixIcon: const Icon(Icons.phone, color: Colors.black45),
+                        enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.black26), borderRadius: BorderRadius.circular(12)),
+                        focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: accentColor, width: 2), borderRadius: BorderRadius.circular(12)),
+                      ),
                     ),
                     const SizedBox(height: 24),
-                    
-                    if (!_isOtpSent) ...[
-                      TextField(
-                        controller: _phoneController,
-                        keyboardType: TextInputType.phone,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          labelText: 'Nomor HP (Contoh: +62812345678)',
-                          labelStyle: const TextStyle(color: Colors.white60),
-                          prefixIcon: const Icon(Icons.phone, color: Colors.white60),
-                          enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white38), borderRadius: BorderRadius.circular(12)),
-                          focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white), borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      _isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : SizedBox(
-                              width: double.infinity,
-                              height: 50,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF8B5A2B),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                ),
-                                onPressed: _sendOtp,
-                                child: const Text('Kirim SMS OTP', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                    _isLoading
+                        ? const CircularProgressIndicator(color: accentColor)
+                        : SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: accentColor,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                               ),
+                              onPressed: _sendOtp,
+                              child: const Text('Kirim SMS OTP', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
                             ),
-                    ],
-
-                    if (_isOtpSent) ...[
-                      TextField(
-                        controller: _nameController,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          labelText: 'Nama Tampilan Anda',
-                          labelStyle: const TextStyle(color: Colors.white60),
-                          prefixIcon: const Icon(Icons.person_outline, color: Colors.white60),
-                          enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white38), borderRadius: BorderRadius.circular(12)),
-                          focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white), borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextField(
-                        controller: _otpController,
-                        keyboardType: TextInputType.number,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          labelText: '6 Digit Kode OTP SMS',
-                          labelStyle: const TextStyle(color: Colors.white60),
-                          prefixIcon: const Icon(Icons.lock_clock_outlined, color: Colors.white60),
-                          enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white38), borderRadius: BorderRadius.circular(12)),
-                          focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.white), borderRadius: BorderRadius.circular(12)),
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      _isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : SizedBox(
-                              width: double.infinity,
-                              height: 50,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                ),
-                                onPressed: _verifyOtp,
-                                child: const Text('Verifikasi & Masuk', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                              ),
-                            ),
-                      const SizedBox(height: 12),
-                      TextButton(
-                        onPressed: () => setState(() => _isOtpSent = false),
-                        child: const Text('Ganti Nomor HP', style: TextStyle(color: Colors.amber)),
-                      )
-                    ],
+                          ),
                   ],
-                ),
+
+                  if (_isOtpSent) ...[
+                    TextField(
+                      controller: _nameController,
+                      style: const TextStyle(color: darkTextColor),
+                      decoration: InputDecoration(
+                        labelText: 'Nama Tampilan Anda',
+                        labelStyle: const TextStyle(color: Colors.black54),
+                        prefixIcon: const Icon(Icons.person_outline, color: Colors.black45),
+                        enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.black26), borderRadius: BorderRadius.circular(12)),
+                        focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: accentColor, width: 2), borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _otpController,
+                      keyboardType: TextInputType.number,
+                      style: const TextStyle(color: darkTextColor),
+                      decoration: InputDecoration(
+                        labelText: '6 Digit Kode OTP SMS',
+                        labelStyle: const TextStyle(color: Colors.black54),
+                        prefixIcon: const Icon(Icons.lock_clock_outlined, color: Colors.black45),
+                        enabledBorder: OutlineInputBorder(borderSide: const BorderSide(color: Colors.black26), borderRadius: BorderRadius.circular(12)),
+                        focusedBorder: OutlineInputBorder(borderSide: const BorderSide(color: accentColor, width: 2), borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    _isLoading
+                        ? const CircularProgressIndicator(color: Colors.green)
+                        : SizedBox(
+                            width: double.infinity,
+                            height: 50,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              onPressed: _verifyOtp,
+                              child: const Text('Verifikasi & Masuk', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: () => setState(() => _isOtpSent = false),
+                      child: const Text('Ganti Nomor HP', style: TextStyle(color: Color(0xFFC67C24), fontWeight: FontWeight.bold)),
+                    )
+                  ],
+                ],
               ),
             ),
           ),

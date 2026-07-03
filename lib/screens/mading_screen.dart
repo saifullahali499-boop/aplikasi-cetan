@@ -8,6 +8,7 @@ class PembaruanScreen extends StatefulWidget {
 }
 
 class _PembaruanScreenState extends State<PembaruanScreen> {
+  // PERBAIKAN: Kode emoji yang eror unicode sudah diperbaiki menjadi normal kembali
   final List<Map<String, String>> _statusMading = [
     {"name": "ISTRIKU ❤️", "time": "Baru saja", "content": "Jemur pakaian jangan lupa diangkat klo mendung ya pa... ☁️"},
     {"name": "Pak Eko Guru", "time": "2 jam lalu", "content": "Pengumuman: Besok pagi harap membawa kapur warna-warni untuk kelas seni."},
@@ -15,26 +16,38 @@ class _PembaruanScreenState extends State<PembaruanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const Color darkTextColor = Color(0xFF2D2B2A);
+    const Color accentColor = Color(0xFF8B5A2B);
+    const Color backgroundColor = Color(0xFFF4F5F7); // Warna dasar screen terang agar konsisten
+
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: backgroundColor,
+      // 1. PENAMBAHAN: AppBar Atas Berwarna Hitam sesuai Chat List Screen
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        title: const Text(
+          'MADING STATUS', 
+          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+        ),
+      ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(20.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('MADING STATUS', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold, letterSpacing: 1.2)),
-              Container(height: 1.5, width: 120, color: Colors.white38, margin: const EdgeInsets.only(top: 5, bottom: 20)),
               Expanded(
                 child: ListView.builder(
                   itemCount: _statusMading.length,
                   itemBuilder: (context, index) {
                     final status = _statusMading[index];
                     return Card(
-                      color: Colors.white.withOpacity(0.05),
+                      color: Colors.white, // Diubah menjadi putih bersih agar tulisan kontras
+                      elevation: 2, // Memberikan sedikit bayangan halus
                       margin: const EdgeInsets.only(bottom: 12),
                       shape: RoundedRectangleBorder(
-                        side: const BorderSide(color: Colors.white24),
+                        side: const BorderSide(color: Colors.black12), // Border abu-abu tipis
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Padding(
@@ -45,12 +58,21 @@ class _PembaruanScreenState extends State<PembaruanScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(status['name']!, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                                Text(status['time']!, style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                                Text(
+                                  status['name']!, 
+                                  style: const TextStyle(color: darkTextColor, fontWeight: FontWeight.bold, fontSize: 16),
+                                ),
+                                Text(
+                                  status['time']!, 
+                                  style: const TextStyle(color: Colors.black45, fontSize: 12),
+                                ),
                               ],
                             ),
                             const SizedBox(height: 8),
-                            Text(status['content']!, style: const TextStyle(color: Colors.white70, fontSize: 15, fontStyle: FontStyle.italic)),
+                            Text(
+                              status['content']!, 
+                              style: const TextStyle(color: darkTextColor, fontSize: 15, fontStyle: FontStyle.italic),
+                            ),
                           ],
                         ),
                       ),
@@ -63,8 +85,8 @@ class _PembaruanScreenState extends State<PembaruanScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF8B5A2B),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: Color(0xAFA0522D), width: 2)),
+        backgroundColor: accentColor, // Menggunakan warna cokelat aksen estetis
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: const Icon(Icons.edit_outlined, color: Colors.white),
         onPressed: () async {
           final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => const TulisStatusScreen()));
@@ -97,44 +119,49 @@ class _TulisStatusScreenState extends State<TulisStatusScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: RadialGradient(center: Alignment(-0.2, -0.3), radius: 1.5, colors: [Color(0xFF2E5B35), Color(0xFF1E3F24), Color(0xFF152E19)]),
-      ),
-      child: Scaffold(
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(icon: const Icon(Icons.close, color: Colors.white70), onPressed: () => Navigator.pop(context)),
-          title: const Text('Goreskan Cerita Baru', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, _statusController.text),
-              child: const Text('TEMPEL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-            ),
-          ],
+    const Color darkTextColor = Color(0xFF2D2B2A);
+    const Color backgroundColor = Color(0xFFF4F5F7);
+
+    return Scaffold(
+      backgroundColor: backgroundColor, // Menghilangkan RadialGradient hijau lama
+      // 2. PERBAIKAN: AppBar Tulis Status juga disamakan Berwarna Hitam pekat
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white), 
+          onPressed: () => Navigator.pop(context),
         ),
-        body: Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            children: [
-              const Divider(color: Colors.white24, height: 1),
-              const SizedBox(height: 20),
-              Expanded(
-                child: TextField(
-                  controller: _statusController,
-                  maxLines: null,
-                  style: const TextStyle(color: Colors.white70, fontSize: 20, fontStyle: FontStyle.italic),
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    hintText: "Tulis apa yang kamu pikirkan di mading kelas...",
-                    hintStyle: TextStyle(color: Colors.white24),
-                    border: InputBorder.none,
-                  ),
+        title: const Text(
+          'Goreskan Cerita Baru', 
+          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, _statusController.text),
+            child: const Text('TEMPEL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          children: [
+            const SizedBox(height: 10),
+            Expanded(
+              child: TextField(
+                controller: _statusController,
+                maxLines: null,
+                style: const TextStyle(color: darkTextColor, fontSize: 20, fontStyle: FontStyle.italic), // Teks input menjadi charcoal gelap
+                autofocus: true,
+                decoration: const InputDecoration(
+                  hintText: "Tulis apa yang kamu pikirkan di mading kelas...",
+                  hintStyle: TextStyle(color: Colors.black38), // Hint text menjadi abu-abu gelap transparan
+                  border: InputBorder.none,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
