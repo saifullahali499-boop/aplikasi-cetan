@@ -190,7 +190,7 @@ class _MainTabControllerState extends State<MainTabController> {
         width: 56,
         height: 56,
         decoration: BoxDecoration(
-          color: Colors.black,
+          color: const Color(0xFF2D2A32),
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(

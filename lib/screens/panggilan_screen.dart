@@ -13,7 +13,7 @@ class PanggilanScreen extends StatelessWidget {
       backgroundColor: backgroundColor,
       // 1. PENAMBAHAN: AppBar atas berwarna hitam pekat
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: const Color(0xFF2D2A32), 
         elevation: 0,
         title: const Text(
           'RIWAYAT PANGGILAN', 

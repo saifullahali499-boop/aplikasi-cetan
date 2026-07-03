@@ -24,7 +24,7 @@ class _PembaruanScreenState extends State<PembaruanScreen> {
       backgroundColor: backgroundColor,
       // 1. PENAMBAHAN: AppBar Atas Berwarna Hitam sesuai Chat List Screen
       appBar: AppBar(
-        backgroundColor: Colors.black,
+        backgroundColor: const Color(0xFF2D2A32),
         elevation: 0,
         title: const Text(
           'MADING STATUS', 
