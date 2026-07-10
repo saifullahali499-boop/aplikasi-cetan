@@ -1,7 +1,7 @@
 plugins {
     id "com.android.application"
     id "kotlin-android"
-    // Tambahkan plugin Google Services di bawah ini
+    // Tambahkan plugin Google Services di bawah ini (PENTING UNTUK FIREBASE)
     id "com.google.gms.google-services"
     id "dev.flutter.flutter-gradle-plugin"
 }
@@ -25,7 +25,8 @@ if (flutterVersionName == null) {
 }
 
 android {
-    namespace "com.saifullah.cetan"
+    // === PERBAIKAN: Namespace diubah agar sinkron dengan Manifest dan struktur proyek ===
+    namespace "com.example.flitter"
     compileSdk flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
@@ -43,8 +44,12 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.saifullah.cetan"
-        minSdk 23 // Firebase minimal butuh SDK 23
+        // === PERBAIKAN: ApplicationId diubah agar sinkron dengan lokasi MainActivity ===
+        applicationId "com.example.flitter"
+        
+        // Sudah Tepat: Syarat Firebase Minimal SDK 23
+        minSdk 23
+        
         targetSdk flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
@@ -53,7 +58,7 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
-// TAMBAHKAN ATAU UBAH DUA BARIS DI BAWAH INI MENJADI false:
+            // Sudah Tepat: false untuk development agar resource tidak hilang
             minifyEnabled false
             shrinkResources false
         }
