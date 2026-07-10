@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'chat_room_screen.dart';
+import 'group_chat_screen.dart'; // <-- 1. TAMBAHKAN IMPORT INI
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
@@ -9,40 +12,20 @@ class ChatListScreen extends StatefulWidget {
 }
 
 class _ChatListScreenState extends State<ChatListScreen> {
-  // Status tab yang sedang aktif (0: SEMUA, 1: BELUM DIBACA, 2: GRUP)
   int _selectedTabFilter = 0;
-
-  // Master data daftar obrolan utama (Emoji dibersihkan agar rapi)
-  final List<Map<String, dynamic>> _masterChatList = [
-    {"name": "ISTRIKU ❤️", "message": "Say, jangan lupa ya?", "time": "10:05", "isGroup": false, "isUnread": true},
-    {"name": "Grup Alumni '98", "message": "Reuni jadi nggak nih???", "time": "Yesterday", "isGroup": true, "isUnread": false},
-    {"name": "Anak Lanang", "message": "Ma, pinjam HP sebentar ya?", "time": "Yesterday", "isGroup": false, "isUnread": true},
-    {"name": "Pak Eko Guru", "message": "Tugas seni dikumpulkan besok.", "time": "2 days ago", "isGroup": false, "isUnread": false},
-    {"name": "Grup Ronda RT 03", "message": "Jadwal siskamling malam ini aman.", "time": "3 days ago", "isGroup": true, "isUnread": false},
-  ];
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   Widget build(BuildContext context) {
-    // Proses penyaringan (filtering) data tetap berjalan normal sesuai logika asli Anda
-    List<Map<String, dynamic>> filteredChatList = [];
-    if (_selectedTabFilter == 0) {
-      filteredChatList = _masterChatList;
-    } else if (_selectedTabFilter == 1) {
-      filteredChatList = _masterChatList.where((chat) => chat['isUnread'] == true).toList();
-    } else if (_selectedTabFilter == 2) {
-      filteredChatList = _masterChatList.where((chat) => chat['isGroup'] == true).toList();
-    }
-
-    int unreadCount = _masterChatList.where((chat) => chat['isUnread'] == true).length;
+    final currentUser = _auth.currentUser;
 
     return Scaffold(
-      backgroundColor: Colors.transparent, // Tetap transparan agar gradasi luar terlihat mewah
-      
-      // === APPBAR HITAM CHARCOAL SESUAI DI ROOM CHAT ===
+      backgroundColor: const Color(0xFFF4F5F7),
+     
       appBar: AppBar(
-        backgroundColor: const Color(0xFF2D2B2A), // Warna hitam arang premium
+        backgroundColor: const Color(0xFF2D2B2A), 
         elevation: 2,
-        automaticallyImplyLeading: false, // Menghilangkan tombol back otomatis jika tidak sengaja muncul
+        automaticallyImplyLeading: false, 
         title: const Text(
           'PESAN',
           style: TextStyle(
@@ -53,7 +36,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
           ),
         ),
         actions: [
-          // Tombol Edit (Tulis Pesan) dipindah ke pojok kanan atas AppBar
           IconButton(
             icon: const Icon(Icons.edit_note_outlined, color: Colors.white70, size: 28),
             onPressed: () {
@@ -63,139 +45,201 @@ class _ChatListScreenState extends State<ChatListScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 15), // Jarak tipis setelah AppBar agar proporsional
-            
-            // --- BAGIAN NAVIGASI TAB GAYA SKETSA CERAH ---
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildSketchTabButton("SEMUA", indexTarget: 0),
-                  _buildSketchTabButton("BELUM DIBACA ($unreadCount)", indexTarget: 1),
-                  _buildSketchTabButton("GRUP", indexTarget: 2),
-                ],
-              ),
-            ),
-            const SizedBox(height: 15),
-            
-            // --- DAFTAR CHAT HASIL FILTERING ---
-            Expanded(
-              child: filteredChatList.isEmpty
-                  ? Center(
-                      child: Text(
-                        'Tidak ada obrolan di kategori ini.',
-                        style: TextStyle(color: const Color(0xFF2C2C2C).withOpacity(0.4), fontStyle: FontStyle.italic),
-                      ),
-                    )
-                  : ListView.builder(
-                      itemCount: filteredChatList.length,
-                      itemBuilder: (context, index) {
-                        final chat = filteredChatList[index];
-                        return InkWell(
-                          onTap: () {
-                            setState(() {
-                              chat['isUnread'] = false;
-                            });
-                            // Tetap mengarah ke chat room pembawa parameter name asli Anda
-                            Navigator.push(context, MaterialPageRoute(builder: (context) => ChatRoomScreen(name: chat['name'])));
-                          },
-                          child: Column(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 12.0),
-                                child: Row(
-                                  children: [
-                                    // Lingkaran Profil Bergaya Sketsa Pensil
-                                    Container(
-                                      width: 48,
-                                      height: 48,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: Colors.white,
-                                        border: Border.all(color: const Color(0xFF2C2C2C), width: 1.5),
-                                        boxShadow: [
-                                          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))
-                                        ]
-                                      ),
-                                      child: Icon(
-                                        chat['name'].contains('Grup') ? Icons.group_outlined : Icons.person_outline_rounded,
-                                        color: const Color(0xFF2C2C2C),
-                                        size: 26,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 14),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Text(
-                                                chat['name'],
-                                                style: const TextStyle(color: Color(0xFF2C2C2C), fontWeight: FontWeight.bold, fontSize: 16),
-                                              ),
-                                              Text(
-                                                chat['time'],
-                                                style: TextStyle(color: const Color(0xFF2C2C2C).withOpacity(0.4), fontSize: 12),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Row(
-                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  chat['message'],
-                                                  style: TextStyle(
-                                                    color: chat['isUnread'] == true ? const Color(0xFF2C2C2C) : Colors.black54,
-                                                    fontSize: 14,
-                                                    fontWeight: chat['isUnread'] == true ? FontWeight.bold : FontWeight.normal,
-                                                  ),
-                                                  maxLines: 1,
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
-                                              // Badge Bulat Indikator Pesan Belum Dibaca Warna Amber Menyala
-                                              if (chat['isUnread'] == true)
-                                                Container(
-                                                  width: 10,
-                                                  height: 10,
-                                                  margin: const EdgeInsets.only(left: 8),
-                                                  decoration: const BoxDecoration(color: Color(0xFFD49A3B), shape: BoxShape.circle),
-                                                ),
-                                            ],
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Divider(color: const Color(0xFF2C2C2C).withOpacity(0.1), height: 1, thickness: 1),
-                            ],
+     
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('chats')
+            .orderBy('timestamp', descending: true)
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator(color: Color(0xFFAB873A)));
+          }
+
+          Map<String, Map<String, dynamic>> roomsMap = {};
+
+          if (snapshot.hasData) {
+            for (var doc in snapshot.data!.docs) {
+              var data = doc.data() as Map<String, dynamic>;
+              String roomName = data['room'] ?? 'Tanpa Nama';
+
+              if (!roomsMap.containsKey(roomName)) {
+                String timeString = "--:--";
+                if (data['timestamp'] != null) {
+                  DateTime dt = (data['timestamp'] as Timestamp).toDate();
+                  timeString = "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+                }
+
+                roomsMap[roomName] = {
+                  "name": roomName,
+                  "message": data['type'] == 'image' ? '📷 Gambar' : (data['type'] == 'file' ? '📁 File' : (data['text'] ?? '')),
+                  "time": timeString,
+                  "isGroup": roomName.toLowerCase().contains('grup'),
+                  "isUnread": (data['isRead'] == false || data['isRead'] == null) && data['senderUid'] != currentUser?.uid,
+                };
+              } else {
+                if ((data['isRead'] == false || data['isRead'] == null) && data['senderUid'] != currentUser?.uid) {
+                  roomsMap[roomName]!['isUnread'] = true;
+                }
+              }
+            }
+          }
+
+          List<Map<String, dynamic>> masterChatList = roomsMap.values.toList();
+
+          List<Map<String, dynamic>> filteredChatList = [];
+          if (_selectedTabFilter == 0) {
+            filteredChatList = masterChatList;
+          } else if (_selectedTabFilter == 1) {
+            filteredChatList = masterChatList.where((chat) => chat['isUnread'] == true).toList();
+          } else if (_selectedTabFilter == 2) {
+            filteredChatList = masterChatList.where((chat) => chat['isGroup'] == true).toList();
+          }
+
+          int unreadCount = masterChatList.where((chat) => chat['isUnread'] == true).length;
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 15), 
+              
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildSketchTabButton("SEMUA", indexTarget: 0),
+                      _buildSketchTabButton("BELUM DIBACA ($unreadCount)", indexTarget: 1),
+                      _buildSketchTabButton("GRUP", indexTarget: 2),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 15),
+              
+                Expanded(
+                  child: filteredChatList.isEmpty
+                      ? Center(
+                          child: Text(
+                            'Tidak ada obrolan di kategori ini.',
+                            style: TextStyle(color: const Color(0xFF2C2C2C).withOpacity(0.4), fontStyle: FontStyle.italic),
                           ),
-                        );
-                      },
-                    ),
+                        )
+                      : ListView.builder(
+                          itemCount: filteredChatList.length,
+                          itemBuilder: (context, index) {
+                            final chat = filteredChatList[index];
+                            return InkWell(
+                              // === 2. PERCABANGAN ROUTING UTAMA BERDASARKAN JENIS CHAT ===
+                              onTap: () {
+                                if (chat['isGroup'] == true) {
+                                  // Masuk ke Screen khusus Grup Chat
+                                  Navigator.push(
+                                    context, 
+                                    MaterialPageRoute(
+                                      builder: (context) => GroupChatScreen(groupName: chat['name'])
+                                    )
+                                  );
+                                } else {
+                                  // Masuk ke Screen Chat Pribadi biasa
+                                  Navigator.push(
+                                    context, 
+                                    MaterialPageRoute(
+                                      builder: (context) => ChatRoomScreen(name: chat['name'])
+                                    )
+                                  );
+                                }
+                              },
+                              child: Column(
+                                children: [
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 12.0),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          width: 48,
+                                          height: 48,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: Colors.white,
+                                            border: Border.all(color: const Color(0xFF2C2C2C), width: 1.5),
+                                            boxShadow: [
+                                              BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))
+                                            ]
+                                          ),
+                                          child: Icon(
+                                            chat['isGroup'] ? Icons.group_outlined : Icons.person_outline_rounded,
+                                            color: const Color(0xFF2C2C2C),
+                                            size: 26,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 14),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  Text(
+                                                    chat['name'].toString().toUpperCase(),
+                                                    style: const TextStyle(color: Color(0xFF2C2C2C), fontWeight: FontWeight.bold, fontSize: 15),
+                                                  ),
+                                                  Text(
+                                                    chat['time'],
+                                                    style: TextStyle(color: const Color(0xFF2C2C2C).withOpacity(0.4), fontSize: 11),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Row(
+                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                children: [
+                                                  Expanded(
+                                                    child: Text(
+                                                      chat['message'],
+                                                      style: TextStyle(
+                                                        color: chat['isUnread'] == true ? const Color(0xFF2C2C2C) : Colors.black54,
+                                                        fontSize: 13,
+                                                        fontWeight: chat['isUnread'] == true ? FontWeight.bold : FontWeight.normal,
+                                                      ),
+                                                      maxLines: 1,
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  if (chat['isUnread'] == true)
+                                                    Container(
+                                                      width: 10,
+                                                      height: 10,
+                                                      margin: const EdgeInsets.only(left: 8),
+                                                      decoration: const BoxDecoration(color: Color(0xFFD49A3B), shape: BoxShape.circle),
+                                                    ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Divider(color: const Color(0xFF2C2C2C).withOpacity(0.1), height: 1, thickness: 1),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
 
-  // Desain tombol navigasi tab filter bertema sketsa pensil & aksen Amber
   Widget _buildSketchTabButton(String text, {required int indexTarget}) {
     bool isSelected = _selectedTabFilter == indexTarget;
-    
+  
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -210,10 +254,10 @@ class _ChatListScreenState extends State<ChatListScreen> {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: isSelected ? const Color(0xFFD49A3B) : const Color(0xFF2C2C2C).withOpacity(0.2),
-            width: 1.5
+            width: 1.5,
           ),
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 3, offset: const Offset(0, 2))
+            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 3, offset: const Offset(0, 2)),
           ],
         ),
         child: Text(
@@ -221,15 +265,15 @@ class _ChatListScreenState extends State<ChatListScreen> {
           style: TextStyle(
             color: isSelected ? Colors.white : const Color(0xFF2C2C2C),
             fontSize: 12,
-            fontWeight: FontWeight.bold
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),
-    );
+    ); 
   }
 }
 
-// === SCREEN PILIH KONTAK BARU (Baju Baru Bertema Kertas Sketsa) ===
+// === SCREEN PILIH KONTAK BARU ===
 class ContactListScreen extends StatefulWidget {
   const ContactListScreen({super.key});
 
@@ -294,7 +338,7 @@ class _ContactListScreenState extends State<ContactListScreen> {
                     });
                   });
                   Navigator.pop(context);
-                  
+                
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       backgroundColor: const Color(0xFFD49A3B),
@@ -387,9 +431,22 @@ class _ContactListScreenState extends State<ContactListScreen> {
                         ),
                         title: Text(contact['name']!, style: const TextStyle(color: Color(0xFF2C2C2C), fontWeight: FontWeight.w600)),
                         subtitle: Text(contact['status']!, style: const TextStyle(color: Colors.black54, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        
+                        // === 3. PERCABANGAN ROUTING JUGA DI HALAMAN KONTAK ===
                         onTap: () {
-                          Navigator.pop(context);
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => ChatRoomScreen(name: contact['name']!)));
+                          Navigator.pop(context); // Tutup halaman pilih kontak
+                          
+                          if (contact['name']!.contains('Grup')) {
+                            Navigator.push(
+                              context, 
+                              MaterialPageRoute(builder: (context) => GroupChatScreen(groupName: contact['name']!))
+                            );
+                          } else {
+                            Navigator.push(
+                              context, 
+                              MaterialPageRoute(builder: (context) => ChatRoomScreen(name: contact['name']!))
+                            );
+                          }
                         },
                       ),
                       Padding(padding: const EdgeInsets.only(left: 72.0), child: Divider(color: const Color(0xFF2C2C2C).withOpacity(0.08), height: 1)),
