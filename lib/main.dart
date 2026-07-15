@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
@@ -107,12 +108,15 @@ class _MainTabControllerState extends State<MainTabController> {
                   _currentIndex = index;
                 });
               },
-              children: const [
-                PembaruanScreen(),
-                PanggilanScreen(),
-                KantinScreen(), // Memanggil file baru dari kantin_screen.dart
-                ChatListScreen(),
-                ProfileScreen(),
+              children: [ // 1. Hapus kata 'const' dari sini
+                const PembaruanScreen(), // 2. Tambahkan const di sini jika belum ada
+                const PanggilanScreen(), // 3. Tambahkan const di sini jika belum ada
+                const KantinScreen(),    // 4. Tambahkan const di sini jika belum ada
+                const ChatListScreen(),  // 5. Tambahkan const di sini jika belum ada
+                ProfileScreen(           // 6. Bagian ini JANGAN diberi const karena ada FirebaseAuth
+                  userId: FirebaseAuth.instance.currentUser?.uid ?? '',
+                  userName: FirebaseAuth.instance.currentUser?.displayName ?? 'Profil Saya',
+                ),
               ],
             ),
 
