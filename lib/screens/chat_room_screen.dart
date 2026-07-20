@@ -335,6 +335,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
    if (currentUser == null) return;
    String messageText = _messageController.text.trim();
    _messageController.clear();
+   setState(() {});
 
    try {
      await _firestore.collection('scheduled_chats').add({
@@ -909,47 +910,61 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
       // 3. Tombol Titik Tiga (Menu Melompat Ke Atas)
       if (_editingMessageId == null && !_isRecording)
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert, color: Colors.black54, size: 28),
-          offset: const Offset(0, -160), 
-          onSelected: (value) {
-            if (value == 'file') _pickFile();
-            if (value == 'camera') _pickImageFromCamera();
-            if (value == 'schedule') _showSchedulePicker();
-          },
-          itemBuilder: (BuildContext context) => [
-            const PopupMenuItem<String>(
-              value: 'file',
-              child: Row(
-                children: [
-                  Icon(Icons.insert_drive_file_outlined, color: Color(0xFFAB873A), size: 20),
-                  SizedBox(width: 12),
-                  Text('Kirim File', style: TextStyle(fontSize: 14)),
-                ],
-              ),
-            ),
-            const PopupMenuItem<String>(
-              value: 'camera',
-              child: Row(
-                children: [
-                  Icon(Icons.camera_alt_outlined, color: Color(0xFFAB873A), size: 20),
-                  SizedBox(width: 12),
-                  Text('Kamera', style: TextStyle(fontSize: 14)),
-                ],
-              ),
-            ),
-            const PopupMenuItem<String>(
-              value: 'schedule',
-              child: Row(
-                children: [
-                  Icon(Icons.access_time, color: Color(0xFFAB873A), size: 20),
-                  SizedBox(width: 12),
-                  Text('Jadwalkan Pesan', style: TextStyle(fontSize: 14)),
-                ],
-              ),
-            ),
+        // 3. Tombol Titik Tiga (Menu Melompat Ke Atas dengan Lingkaran Abu-abu Gelap)
+if (_editingMessageId == null && !_isRecording)
+  PopupMenuButton<String>(
+    icon: Container(
+      padding: const EdgeInsets.all(4),
+      decoration: const BoxDecoration(
+        // 🟢 DI SINI PERUBAHANNYA: Menggunakan warna arang tua (#37333B)
+        color: Color(0xFF37333B), 
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(
+        Icons.more_vert,
+        color: Colors.white, // Ikon tetap putih agar kontras
+        size: 20,
+      ),
+    ),
+    offset: const Offset(0, -160),
+    onSelected: (value) {
+      if (value == 'file') _pickFile();
+      if (value == 'camera') _pickImageFromCamera();
+      if (value == 'schedule') _showSchedulePicker();
+    },
+    itemBuilder: (BuildContext context) => [
+      const PopupMenuItem<String>(
+        value: 'file',
+        child: Row(
+          children: [
+            Icon(Icons.insert_drive_file_outlined, color: Color(0xFFAB873A), size: 20),
+            SizedBox(width: 12),
+            Text('Kirim File', style: TextStyle(fontSize: 14)),
           ],
         ),
+      ),
+      const PopupMenuItem<String>(
+        value: 'camera',
+        child: Row(
+          children: [
+            Icon(Icons.camera_alt_outlined, color: Color(0xFFAB873A), size: 20),
+            SizedBox(width: 12),
+            Text('Kamera', style: TextStyle(fontSize: 14)),
+          ],
+        ),
+      ),
+      const PopupMenuItem<String>(
+        value: 'schedule',
+        child: Row(
+          children: [
+            Icon(Icons.access_time, color: Color(0xFFAB873A), size: 20),
+            SizedBox(width: 12),
+            Text('Jadwalkan Pesan', style: TextStyle(fontSize: 14)),
+          ],
+        ),
+      ),
+    ],
+  ),
     ],
   ),
 ),
