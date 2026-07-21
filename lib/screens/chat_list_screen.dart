@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'chat_room_screen.dart';
-import 'group_chat_screen.dart'; // <-- 1. TAMBAHKAN IMPORT INI
+import 'group_chat_screen.dart';
+import '../services/wifi_service.dart'; // ✅ Menggunakan jalur relatif (aman & tidak akan error)
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
@@ -14,6 +15,20 @@ class ChatListScreen extends StatefulWidget {
 class _ChatListScreenState extends State<ChatListScreen> {
   int _selectedTabFilter = 0;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // 2. Buat objek dari layanan Wi-Fi
+  final WifiStatusService _wifiService = WifiStatusService();
+
+  @override
+  void initState() {
+    super.initState();
+    
+    // 3. Jalankan pengecekan Wi-Fi begitu halaman pesan dibuka
+    _wifiService.checkAndUpdatetWifiStatus();
+    
+    // 4. Dengarkan jika sewaktu-waktu jaringan Wi-Fi berubah di latar belakang
+    _wifiService.listenToConnectivityChanges();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -130,10 +145,8 @@ class _ChatListScreenState extends State<ChatListScreen> {
                           itemBuilder: (context, index) {
                             final chat = filteredChatList[index];
                             return InkWell(
-                              // === 2. PERCABANGAN ROUTING UTAMA BERDASARKAN JENIS CHAT ===
                               onTap: () {
                                 if (chat['isGroup'] == true) {
-                                  // Masuk ke Screen khusus Grup Chat
                                   Navigator.push(
                                     context, 
                                     MaterialPageRoute(
@@ -141,7 +154,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
                                     )
                                   );
                                 } else {
-                                  // Masuk ke Screen Chat Pribadi biasa
                                   Navigator.push(
                                     context, 
                                     MaterialPageRoute(
@@ -334,7 +346,7 @@ class _ContactListScreenState extends State<ContactListScreen> {
                   setState(() {
                     _contacts.insert(0, {
                       "name": isGroup ? "Grup $text" : text,
-                      "status": isGroup ? "Baru saja dibuat oleh Anda" : "Halo! Saya menggunakan PapanTulis.",
+                      "status": isGroup ? "Baru saja dibuat oleh Anda" : "Halo! Salat menggunakan CETAN.",
                     });
                   });
                   Navigator.pop(context);
@@ -405,7 +417,7 @@ class _ContactListScreenState extends State<ContactListScreen> {
               title: const Text('Tambah Kontak Kapur', style: TextStyle(color: Color(0xFF2C2C2C), fontWeight: FontWeight.bold)),
               onTap: () => _showInputDialog(
                 title: 'Tambah Nama Kontak',
-                hint: 'Tulis nama teman sekelas...',
+                hint: 'Tulis nama teman...',
                 isGroup: false,
               ),
             ),
@@ -432,9 +444,8 @@ class _ContactListScreenState extends State<ContactListScreen> {
                         title: Text(contact['name']!, style: const TextStyle(color: Color(0xFF2C2C2C), fontWeight: FontWeight.w600)),
                         subtitle: Text(contact['status']!, style: const TextStyle(color: Colors.black54, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
                         
-                        // === 3. PERCABANGAN ROUTING JUGA DI HALAMAN KONTAK ===
                         onTap: () {
-                          Navigator.pop(context); // Tutup halaman pilih kontak
+                          Navigator.pop(context); 
                           
                           if (contact['name']!.contains('Grup')) {
                             Navigator.push(
