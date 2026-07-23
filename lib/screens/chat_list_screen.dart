@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'chat_room_screen.dart';
 import 'group_chat_screen.dart';
-import '../services/wifi_service.dart'; // ✅ Menggunakan jalur relatif (aman & tidak akan error)
+import '../services/wifi_service.dart';
 
 class ChatListScreen extends StatefulWidget {
   const ChatListScreen({super.key});
@@ -12,22 +13,460 @@ class ChatListScreen extends StatefulWidget {
   State<ChatListScreen> createState() => _ChatListScreenState();
 }
 
-class _ChatListScreenState extends State<ChatListScreen> {
+class _ChatListScreenState extends State<ChatListScreen> with WidgetsBindingObserver {
   int _selectedTabFilter = 0;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  // 2. Buat objek dari layanan Wi-Fi
   final WifiStatusService _wifiService = WifiStatusService();
+
+  List<String> _lockedChats = [];
+  String _appPin = "1234";
 
   @override
   void initState() {
     super.initState();
-    
-    // 3. Jalankan pengecekan Wi-Fi begitu halaman pesan dibuka
+    WidgetsBinding.instance.addObserver(this);
     _wifiService.checkAndUpdatetWifiStatus();
-    
-    // 4. Dengarkan jika sewaktu-waktu jaringan Wi-Fi berubah di latar belakang
     _wifiService.listenToConnectivityChanges();
+    _loadLockedChats();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  Future<void> _loadLockedChats() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _lockedChats = prefs.getStringList('locked_chats') ?? [];
+      _appPin = prefs.getString('app_pin') ?? "1234";
+    });
+  }
+
+  Future<void> _toggleLockChat(String roomName) async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      if (_lockedChats.contains(roomName)) {
+        _lockedChats.remove(roomName);
+      } else {
+        _lockedChats.add(roomName);
+      }
+    });
+    await prefs.setStringList('locked_chats', _lockedChats);
+  }
+
+  // Fungsi untuk menandai pesan di room ini sudah dibaca
+  Future<void> _markChatAsRead(String roomName) async {
+    final currentUserId = _auth.currentUser?.uid;
+    if (currentUserId == null) return;
+
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('chats')
+          .where('room', isEqualTo: roomName)
+          .get();
+
+      for (var doc in querySnapshot.docs) {
+        var data = doc.data();
+        if (data['senderUid'] != currentUserId && (data['isRead'] == false || data['isRead'] == null)) {
+          await doc.reference.update({'isRead': true});
+        }
+      }
+    } catch (e) {
+      print("Error marking chat as read: $e");
+    }
+  }
+
+  // Dialog untuk memasukkan PIN saat membuka chat yang dikunci
+  void _showPinDialog(BuildContext context, String roomName, bool isGroup) {
+    final TextEditingController pinController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: Color(0xFF2C2C2C), width: 2),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.lock_outline, color: Color(0xFFD49A3B)),
+              SizedBox(width: 8),
+              Text('Chat Terkunci', style: TextStyle(color: Color(0xFF2C2C2C), fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Masukkan PIN untuk membuka obrolan dengan "$roomName":', style: const TextStyle(fontSize: 13, color: Colors.black54)),
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF6F6F4),
+                  border: Border.all(color: const Color(0xFF2C2C2C).withOpacity(0.2)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: TextField(
+                  controller: pinController,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  style: const TextStyle(color: Color(0xFF2C2C2C), letterSpacing: 8, fontSize: 18),
+                  decoration: const InputDecoration(
+                    hintText: '••••',
+                    hintStyle: TextStyle(color: Colors.black38, letterSpacing: 8),
+                    border: InputBorder.none,
+                    counterText: "",
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('BATAL', style: TextStyle(color: Colors.black45, fontWeight: FontWeight.bold)),
+            ),
+            TextButton(
+              onPressed: () {
+                if (pinController.text == _appPin) {
+                  Navigator.pop(context);
+                  _markChatAsRead(roomName);
+                  if (isGroup) {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => GroupChatScreen(groupName: roomName)));
+                  } else {
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => ChatRoomScreen(name: roomName)));
+                  }
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(backgroundColor: Colors.red, content: Text('PIN Salah! Coba lagi.')),
+                  );
+                }
+              },
+              child: const Text('BUKA', style: TextStyle(color: Color(0xFFD49A3B), fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Dialog Ubah PIN Keamanan
+  void _showChangePinDialog(BuildContext context) {
+    final TextEditingController oldPinController = TextEditingController();
+    final TextEditingController newPinController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: Color(0xFF2C2C2C), width: 2),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.lock_reset, color: Color(0xFFD49A3B)),
+              SizedBox(width: 8),
+              Text('Ubah PIN Keamanan', style: TextStyle(color: Color(0xFF2C2C2C), fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('PIN Lama:', style: TextStyle(fontSize: 12, color: Colors.black54)),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF6F6F4),
+                  border: Border.all(color: const Color(0xFF2C2C2C).withOpacity(0.2)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: TextField(
+                  controller: oldPinController,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  style: const TextStyle(color: Color(0xFF2C2C2C), letterSpacing: 8, fontSize: 16),
+                  decoration: const InputDecoration(
+                    hintText: '••••',
+                    hintStyle: TextStyle(color: Colors.black38, letterSpacing: 8),
+                    border: InputBorder.none,
+                    counterText: "",
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text('PIN Baru (4 Digit):', style: TextStyle(fontSize: 12, color: Colors.black54)),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF6F6F4),
+                  border: Border.all(color: const Color(0xFF2C2C2C).withOpacity(0.2)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: TextField(
+                  controller: newPinController,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  style: const TextStyle(color: Color(0xFF2C2C2C), letterSpacing: 8, fontSize: 16),
+                  decoration: const InputDecoration(
+                    hintText: '••••',
+                    hintStyle: TextStyle(color: Colors.black38, letterSpacing: 8),
+                    border: InputBorder.none,
+                    counterText: "",
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('BATAL', style: TextStyle(color: Colors.black45, fontWeight: FontWeight.bold)),
+            ),
+            TextButton(
+              onPressed: () async {
+                if (oldPinController.text != _appPin) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(backgroundColor: Colors.red, content: Text('PIN Lama yang dimasukkan salah!')),
+                  );
+                  return;
+                }
+                if (newPinController.text.length != 4) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(backgroundColor: Colors.red, content: Text('PIN Baru harus tepat 4 digit!')),
+                  );
+                  return;
+                }
+
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setString('app_pin', newPinController.text);
+                setState(() {
+                  _appPin = newPinController.text;
+                });
+
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(backgroundColor: Color(0xFFD49A3B), content: Text('PIN Keamanan berhasil diubah!')),
+                );
+              },
+              child: const Text('SIMPAN', style: TextStyle(color: Color(0xFFD49A3B), fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Jendela Modal untuk Fitur Incognito Peek (Intip Chat)
+  void _showIncognitoPeekModal(BuildContext context, String roomName) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.visibility_off, color: Color(0xFFD49A3B)),
+                      const SizedBox(width: 8),
+                      Text(
+                        'INTIP: ${roomName.toUpperCase()}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF2C2C2C)),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Color(0xFF2C2C2C)),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const Text(
+                '🛡️ Mode Baca Aman Aktif (Status dibaca & online tidak berubah)',
+                style: TextStyle(fontSize: 11, color: Colors.black54, fontStyle: FontStyle.italic),
+              ),
+              const Divider(height: 20),
+              Expanded(
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('chats')
+                      .where('room', isEqualTo: roomName)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator(color: Color(0xFFAB873A)));
+                    }
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return const Center(child: Text('Belum ada pesan di obrolan ini.', style: TextStyle(color: Colors.black38)));
+                    }
+
+                    // Urutkan secara lokal agar menampilkan 10-15 pesan terakhir secara kronologis
+                    var docs = snapshot.data!.docs;
+                    docs.sort((a, b) {
+                      var tA = (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
+                      var tB = (b.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
+                      if (tA == null || tB == null) return 0;
+                      return tA.compareTo(tB);
+                    });
+
+                    if (docs.length > 15) {
+                      docs = docs.sublist(docs.length - 15);
+                    }
+
+                    final currentUserId = _auth.currentUser?.uid;
+
+                    return ListView.builder(
+                      itemCount: docs.length,
+                      itemBuilder: (context, index) {
+                        var data = docs[index].data() as Map<String, dynamic>;
+                        bool isMe = data['senderUid'] == currentUserId;
+                        String text = data['type'] == 'image' ? '📸 [Gambar]' : (data['type'] == 'file' ? '📁 [File]' : (data['text'] ?? ''));
+
+                        String timeString = "--:--";
+                        if (data['timestamp'] != null) {
+                          DateTime dt = (data['timestamp'] as Timestamp).toDate();
+                          timeString = "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
+                        }
+
+                        return Align(
+                          alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+                            decoration: BoxDecoration(
+                              color: isMe ? const Color(0xFFD49A3B).withOpacity(0.15) : const Color(0xFFF6F6F4),
+                              border: Border.all(color: const Color(0xFF2C2C2C).withOpacity(0.1)),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      isMe ? 'Anda' : (data['senderName'] ?? 'Seseorang'),
+                                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                                    ),
+                                    const SizedBox(width: 20),
+                                    Text(
+                                      timeString,
+                                      style: TextStyle(fontSize: 9, color: Colors.grey.shade500),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  text,
+                                  style: const TextStyle(fontSize: 13, color: Color(0xFF2C2C2C)),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Opsi Bottom Sheet saat Long Press pada Chat Item
+  void _showChatOptionsSheet(BuildContext context, String roomName) {
+    bool isLocked = _lockedChats.contains(roomName);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(20.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(roomName.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF2C2C2C))),
+              const SizedBox(height: 10),
+              Divider(color: Colors.grey.shade300),
+              // FITUR BARU: INCOGNITO PEEK (INTIP CHAT)
+              ListTile(
+                leading: const Icon(Icons.visibility_off_outlined, color: Color(0xFFD49A3B)),
+                title: const Text('Lihat Chat (Mode Baca Aman)', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Baca tanpa ketahuan / tanpa centang biru', style: TextStyle(fontSize: 11, color: Colors.black54)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showIncognitoPeekModal(context, roomName);
+                },
+              ),
+              ListTile(
+                leading: Icon(isLocked ? Icons.lock_open_rounded : Icons.lock_outline_rounded, color: const Color(0xFFD49A3B)),
+                title: Text(isLocked ? 'Buka Kunci Obrolan' : 'Kunci Obrolan Ini', style: const TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _toggleLockChat(roomName);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: const Color(0xFFD49A3B),
+                      content: Text(isLocked ? 'Obrolan berhasil dibuka' : 'Obrolan berhasil dikunci 🔒'),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    final currentUserId = _auth.currentUser?.uid;
+    if (currentUserId == null) return;
+
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
+      FirebaseFirestore.instance.collection('users').doc(currentUserId).set({
+        'status': 'Offline',
+        'lastSeen': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } else if (state == AppLifecycleState.resumed) {
+      _wifiService.checkAndUpdatetWifiStatus();
+      FirebaseFirestore.instance.collection('users').doc(currentUserId).set({
+        'lastSeen': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
   }
 
   @override
@@ -36,21 +475,22 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F5F7),
-     
       appBar: AppBar(
-        backgroundColor: const Color(0xFF2D2B2A), 
+        backgroundColor: const Color(0xFF2D2B2A),
         elevation: 2,
-        automaticallyImplyLeading: false, 
+        automaticallyImplyLeading: false,
         title: const Text(
           'PESAN',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.8,
-          ),
+          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.8),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.lock_reset, color: Colors.white70, size: 26),
+            tooltip: 'Ubah PIN Keamanan',
+            onPressed: () {
+              _showChangePinDialog(context);
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.edit_note_outlined, color: Colors.white70, size: 28),
             onPressed: () {
@@ -60,7 +500,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
           const SizedBox(width: 8),
         ],
       ),
-     
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('chats')
@@ -87,7 +526,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
                 roomsMap[roomName] = {
                   "name": roomName,
-                  "message": data['type'] == 'image' ? '📷 Gambar' : (data['type'] == 'file' ? '📁 File' : (data['text'] ?? '')),
+                  "message": data['type'] == 'image' ? '📸 Gambar' : (data['type'] == 'file' ? '📁 File' : (data['text'] ?? '')),
                   "time": timeString,
                   "isGroup": roomName.toLowerCase().contains('grup'),
                   "isUnread": (data['isRead'] == false || data['isRead'] == null) && data['senderUid'] != currentUser?.uid,
@@ -118,8 +557,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: 15), 
-              
+                const SizedBox(height: 15),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
@@ -131,7 +569,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
                   ),
                 ),
                 const SizedBox(height: 15),
-              
                 Expanded(
                   child: filteredChatList.isEmpty
                       ? Center(
@@ -144,23 +581,24 @@ class _ChatListScreenState extends State<ChatListScreen> {
                           itemCount: filteredChatList.length,
                           itemBuilder: (context, index) {
                             final chat = filteredChatList[index];
+                            final String roomName = chat['name'];
+                            final bool isLocked = _lockedChats.contains(roomName);
+
                             return InkWell(
                               onTap: () {
-                                if (chat['isGroup'] == true) {
-                                  Navigator.push(
-                                    context, 
-                                    MaterialPageRoute(
-                                      builder: (context) => GroupChatScreen(groupName: chat['name'])
-                                    )
-                                  );
+                                if (isLocked) {
+                                  _showPinDialog(context, roomName, chat['isGroup']);
                                 } else {
-                                  Navigator.push(
-                                    context, 
-                                    MaterialPageRoute(
-                                      builder: (context) => ChatRoomScreen(name: chat['name'])
-                                    )
-                                  );
+                                  _markChatAsRead(roomName);
+                                  if (chat['isGroup'] == true) {
+                                    Navigator.push(context, MaterialPageRoute(builder: (context) => GroupChatScreen(groupName: roomName)));
+                                  } else {
+                                    Navigator.push(context, MaterialPageRoute(builder: (context) => ChatRoomScreen(name: roomName)));
+                                  }
                                 }
+                              },
+                              onLongPress: () {
+                                _showChatOptionsSheet(context, roomName);
                               },
                               child: Column(
                                 children: [
@@ -193,9 +631,17 @@ class _ChatListScreenState extends State<ChatListScreen> {
                                               Row(
                                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                                 children: [
-                                                  Text(
-                                                    chat['name'].toString().toUpperCase(),
-                                                    style: const TextStyle(color: Color(0xFF2C2C2C), fontWeight: FontWeight.bold, fontSize: 15),
+                                                  Row(
+                                                    children: [
+                                                      Text(
+                                                        roomName.toUpperCase(),
+                                                        style: const TextStyle(color: Color(0xFF2C2C2C), fontWeight: FontWeight.bold, fontSize: 15),
+                                                      ),
+                                                      if (isLocked) ...[
+                                                        const SizedBox(width: 6),
+                                                        const Icon(Icons.lock, size: 14, color: Color(0xFFD49A3B)),
+                                                      ]
+                                                    ],
                                                   ),
                                                   Text(
                                                     chat['time'],
@@ -209,17 +655,20 @@ class _ChatListScreenState extends State<ChatListScreen> {
                                                 children: [
                                                   Expanded(
                                                     child: Text(
-                                                      chat['message'],
+                                                      isLocked ? '🔒 Obrolan ini dikunci' : chat['message'],
                                                       style: TextStyle(
-                                                        color: chat['isUnread'] == true ? const Color(0xFF2C2C2C) : Colors.black54,
+                                                        color: isLocked 
+                                                            ? Colors.black38 
+                                                            : (chat['isUnread'] == true ? const Color(0xFF2C2C2C) : Colors.black54),
                                                         fontSize: 13,
+                                                        fontStyle: isLocked ? FontStyle.italic : FontStyle.normal,
                                                         fontWeight: chat['isUnread'] == true ? FontWeight.bold : FontWeight.normal,
                                                       ),
                                                       maxLines: 1,
                                                       overflow: TextOverflow.ellipsis,
                                                     ),
                                                   ),
-                                                  if (chat['isUnread'] == true)
+                                                  if (chat['isUnread'] == true && !isLocked)
                                                     Container(
                                                       width: 10,
                                                       height: 10,
@@ -251,7 +700,6 @@ class _ChatListScreenState extends State<ChatListScreen> {
 
   Widget _buildSketchTabButton(String text, {required int indexTarget}) {
     bool isSelected = _selectedTabFilter == indexTarget;
-  
     return GestureDetector(
       onTap: () {
         setState(() {
@@ -281,7 +729,7 @@ class _ChatListScreenState extends State<ChatListScreen> {
           ),
         ),
       ),
-    ); 
+    );
   }
 }
 
@@ -290,10 +738,10 @@ class ContactListScreen extends StatefulWidget {
   const ContactListScreen({super.key});
 
   @override
-  State<ContactListScreen> createState() => _ContactListScreenState();
+  State<ContactListScreen> createState() => _ContactListViewState();
 }
 
-class _ContactListScreenState extends State<ContactListScreen> {
+class _ContactListViewState extends State<ContactListScreen> {
   final List<Map<String, String>> _contacts = [
     {"name": "Anak Lanang", "status": "Sedang belajar Flutter 🚀"},
     {"name": "Bapak Ketua RT", "status": "Ada rapat warga nanti malam"},
@@ -350,7 +798,6 @@ class _ContactListScreenState extends State<ContactListScreen> {
                     });
                   });
                   Navigator.pop(context);
-                
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       backgroundColor: const Color(0xFFD49A3B),
@@ -443,18 +890,16 @@ class _ContactListScreenState extends State<ContactListScreen> {
                         ),
                         title: Text(contact['name']!, style: const TextStyle(color: Color(0xFF2C2C2C), fontWeight: FontWeight.w600)),
                         subtitle: Text(contact['status']!, style: const TextStyle(color: Colors.black54, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        
                         onTap: () {
-                          Navigator.pop(context); 
-                          
+                          Navigator.pop(context);
                           if (contact['name']!.contains('Grup')) {
                             Navigator.push(
-                              context, 
+                              context,
                               MaterialPageRoute(builder: (context) => GroupChatScreen(groupName: contact['name']!))
                             );
                           } else {
                             Navigator.push(
-                              context, 
+                              context,
                               MaterialPageRoute(builder: (context) => ChatRoomScreen(name: contact['name']!))
                             );
                           }

@@ -654,81 +654,127 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
 
  @override
  Widget build(BuildContext context) {
-   String subtitleStatus = 'Transformative Teal';
-
    return Container(
-     color: const Color(0xFFF4F5F7),
-     child: Scaffold(
-       backgroundColor: Colors.transparent,
-       endDrawer: ProfileEndDrawer(name: widget.name,chatId: widget.name,), 
-       appBar: AppBar(
-         backgroundColor: const Color(0xFF2D2B2A),
-         elevation: 2,
-         leading: IconButton(
-           icon: const Icon(Icons.arrow_back, color: Colors.white70),
-           onPressed: () => Navigator.pop(context),
-         ),
-         title: Builder(
-           builder: (innerContext) {
-             return InkWell(
-               onTap: () {
-                 Scaffold.of(innerContext).openEndDrawer();
-               },
-               borderRadius: BorderRadius.circular(8),
-               child: Padding(
-                 padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
-                 child: Row(
-                   children: [
-                     CircleAvatar(
-                       radius: 18,
-                       backgroundColor: Colors.white24,
-                       child: Icon(
-                         widget.name.contains('Grup') ? Icons.group_outlined : Icons.person,
-                         color: Colors.white,
-                         size: 20,
-                       ),
-                     ),
-                     const SizedBox(width: 10),
-                     Expanded(
-                       child: Column(
-                         crossAxisAlignment: CrossAxisAlignment.start,
-                         children: [
-                           Text(
-                             widget.name.toUpperCase(),
-                             style: const TextStyle(
-                               color: Colors.white,
-                               fontSize: 16,
-                               fontWeight: FontWeight.bold,
-                               letterSpacing: 0.5
-                             ),
-                           ),
-                           Text(
-                             subtitleStatus,
-                             style: const TextStyle(color: Colors.white60, fontSize: 11),
-                             maxLines: 1,
-                             overflow: TextOverflow.ellipsis,
-                           ),
-                         ],
-                       ),
-                     ),
-                   ],
-                 ),
-               ),
-             );
-           },
-         ), 
-         actions: [
-           IconButton(
-             icon: const Icon(Icons.phone_outlined, color: Colors.white70),
-             onPressed: () => _startCall(false),
-           ),
-           IconButton(
-             icon: const Icon(Icons.videocam_outlined, color: Colors.white70),
-             onPressed: () => _startCall(true),
-           ),
-           const SizedBox(width: 4),
-         ],
-       ),
+      color: const Color(0xFFF4F5F7),
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        endDrawer: ProfileEndDrawer(name: widget.name, chatId: widget.name),
+        appBar: AppBar(
+        backgroundColor: const Color(0xFF2D2B2A),
+        elevation: 2,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white70),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Builder(
+          builder: (innerContext) {
+            return InkWell(
+              onTap: () {
+                Scaffold.of(innerContext).openEndDrawer();
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 2.0),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: Colors.white24,
+                      child: Icon(
+                        widget.name.contains('Grup') ? Icons.group_outlined : Icons.person,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.name.toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          
+                          // --- STREAM BUILDER DENGAN CEK PRIVASI (SHOW/HIDE STATUS) ---
+                          StreamBuilder<QuerySnapshot>(
+                            stream: _firestore
+                                .collection('users')
+                                .snapshots(),
+                            builder: (context, snapshot) {
+                              String displayStatus = "Mobile Data";
+                              bool showStatus = true; // Default aktif
+
+                              if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                                try {
+                                  var userDoc = snapshot.data!.docs.firstWhere(
+                                    (doc) => doc.id == widget.name || (doc.data() as Map<String, dynamic>)['name'] == widget.name,
+                                  );
+                                  var data = userDoc.data() as Map<String, dynamic>;
+                                  
+                                  // Ambil pengaturan privasi & statusnya
+                                  showStatus = data['showStatus'] ?? true;
+                                  displayStatus = data['status'] ?? 'Mobile Data';
+                                } catch (e) {
+                                  showStatus = true;
+                                }
+                              }
+
+                              // JIKA PENGGUNA MEMATIKAN STATUS, SEMBUNYIKAN TAMPILANNYA
+                              if (!showStatus) {
+                                return const SizedBox.shrink(); // Teks & titik hijau hilang bersih
+                              }
+
+                              return Row(
+                                children: [
+                                  Container(
+                                    width: 7,
+                                    height: 7,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.greenAccent,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Expanded(
+                                    child: Text(
+                                      displayStatus,
+                                      style: const TextStyle(color: Colors.white60, fontSize: 11),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                          // -----------------------------------------------------------
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.phone_outlined, color: Colors.white70),
+            onPressed: () => _startCall(false),
+          ),
+          IconButton(
+            icon: const Icon(Icons.videocam_outlined, color: Colors.white70),
+            onPressed: () => _startCall(true),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
        body: Column(
          children: [
            Expanded(
