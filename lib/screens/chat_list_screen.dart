@@ -155,10 +155,9 @@ class _ChatListScreenState extends State<ChatListScreen> with WidgetsBindingObse
     );
   }
 
-  // Dialog Ubah PIN Keamanan
-  void _showChangePinDialog(BuildContext context) {
-    final TextEditingController oldPinController = TextEditingController();
-    final TextEditingController newPinController = TextEditingController();
+  // Dialog untuk memasukkan PIN saat ingin MEMBUKA KUNCI obrolan
+  void _showUnlockPinDialog(BuildContext context, String roomName) {
+    final TextEditingController pinController = TextEditingController();
 
     showDialog(
       context: context,
@@ -171,17 +170,16 @@ class _ChatListScreenState extends State<ChatListScreen> with WidgetsBindingObse
           ),
           title: const Row(
             children: [
-              Icon(Icons.lock_reset, color: Color(0xFFD49A3B)),
+              Icon(Icons.lock_open_rounded, color: Color(0xFFD49A3B)),
               SizedBox(width: 8),
-              Text('Ubah PIN Keamanan', style: TextStyle(color: Color(0xFF2C2C2C), fontSize: 16, fontWeight: FontWeight.bold)),
+              Text('Buka Kunci Obrolan', style: TextStyle(color: Color(0xFF2C2C2C), fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('PIN Lama:', style: TextStyle(fontSize: 12, color: Colors.black54)),
-              const SizedBox(height: 6),
+              Text('Masukkan PIN untuk menghapus kunci dari obrolan "$roomName":', style: const TextStyle(fontSize: 13, color: Colors.black54)),
+              const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
@@ -190,35 +188,11 @@ class _ChatListScreenState extends State<ChatListScreen> with WidgetsBindingObse
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: TextField(
-                  controller: oldPinController,
+                  controller: pinController,
                   obscureText: true,
                   keyboardType: TextInputType.number,
                   maxLength: 4,
-                  style: const TextStyle(color: Color(0xFF2C2C2C), letterSpacing: 8, fontSize: 16),
-                  decoration: const InputDecoration(
-                    hintText: '••••',
-                    hintStyle: TextStyle(color: Colors.black38, letterSpacing: 8),
-                    border: InputBorder.none,
-                    counterText: "",
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text('PIN Baru (4 Digit):', style: TextStyle(fontSize: 12, color: Colors.black54)),
-              const SizedBox(height: 6),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF6F6F4),
-                  border: Border.all(color: const Color(0xFF2C2C2C).withOpacity(0.2)),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: TextField(
-                  controller: newPinController,
-                  obscureText: true,
-                  keyboardType: TextInputType.number,
-                  maxLength: 4,
-                  style: const TextStyle(color: Color(0xFF2C2C2C), letterSpacing: 8, fontSize: 16),
+                  style: const TextStyle(color: Color(0xFF2C2C2C), letterSpacing: 8, fontSize: 18),
                   decoration: const InputDecoration(
                     hintText: '••••',
                     hintStyle: TextStyle(color: Colors.black38, letterSpacing: 8),
@@ -235,32 +209,23 @@ class _ChatListScreenState extends State<ChatListScreen> with WidgetsBindingObse
               child: const Text('BATAL', style: TextStyle(color: Colors.black45, fontWeight: FontWeight.bold)),
             ),
             TextButton(
-              onPressed: () async {
-                if (oldPinController.text != _appPin) {
+              onPressed: () {
+                if (pinController.text == _appPin) {
+                  Navigator.pop(context);
+                  _toggleLockChat(roomName);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(backgroundColor: Colors.red, content: Text('PIN Lama yang dimasukkan salah!')),
+                    const SnackBar(
+                      backgroundColor: Color(0xFFD49A3B),
+                      content: Text('Obrolan berhasil dibuka kuncinya 🔓'),
+                    ),
                   );
-                  return;
-                }
-                if (newPinController.text.length != 4) {
+                } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(backgroundColor: Colors.red, content: Text('PIN Baru harus tepat 4 digit!')),
+                    const SnackBar(backgroundColor: Colors.red, content: Text('PIN Salah! Coba lagi.')),
                   );
-                  return;
                 }
-
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setString('app_pin', newPinController.text);
-                setState(() {
-                  _appPin = newPinController.text;
-                });
-
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(backgroundColor: Color(0xFFD49A3B), content: Text('PIN Keamanan berhasil diubah!')),
-                );
               },
-              child: const Text('SIMPAN', style: TextStyle(color: Color(0xFFD49A3B), fontWeight: FontWeight.bold)),
+              child: const Text('BUKA', style: TextStyle(color: Color(0xFFD49A3B), fontWeight: FontWeight.bold)),
             ),
           ],
         );
@@ -268,7 +233,8 @@ class _ChatListScreenState extends State<ChatListScreen> with WidgetsBindingObse
     );
   }
 
-  // Jendela Modal untuk Fitur Incognito Peek (Intip Chat)
+
+  // Jendela Modal untuk Fitur Lihat Chat / Incognito Peek
   void _showIncognitoPeekModal(BuildContext context, String roomName) {
     showModalBottomSheet(
       context: context,
@@ -322,7 +288,6 @@ class _ChatListScreenState extends State<ChatListScreen> with WidgetsBindingObse
                       return const Center(child: Text('Belum ada pesan di obrolan ini.', style: TextStyle(color: Colors.black38)));
                     }
 
-                    // Urutkan secara lokal agar menampilkan 10-15 pesan terakhir secara kronologis
                     var docs = snapshot.data!.docs;
                     docs.sort((a, b) {
                       var tA = (a.data() as Map<String, dynamic>)['timestamp'] as Timestamp?;
@@ -419,28 +384,40 @@ class _ChatListScreenState extends State<ChatListScreen> with WidgetsBindingObse
               Text(roomName.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF2C2C2C))),
               const SizedBox(height: 10),
               Divider(color: Colors.grey.shade300),
-              // FITUR BARU: INCOGNITO PEEK (INTIP CHAT)
-              ListTile(
-                leading: const Icon(Icons.visibility_off_outlined, color: Color(0xFFD49A3B)),
-                title: const Text('Lihat Chat (Mode Baca Aman)', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Baca tanpa ketahuan / tanpa centang biru', style: TextStyle(fontSize: 11, color: Colors.black54)),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showIncognitoPeekModal(context, roomName);
-                },
-              ),
+              
+              // FITUR LIHAT CHAT: Hanya muncul jika chat TIDAK terkunci (!isLocked)
+              if (!isLocked) ...[
+                ListTile(
+                  leading: const Icon(Icons.visibility_off_outlined, color: Color(0xFFD49A3B)),
+                  title: const Text('Lihat Chat (Mode Baca Aman)', style: TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: const Text('Baca tanpa ketahuan / tanpa centang biru', style: TextStyle(fontSize: 11, color: Colors.black54)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showIncognitoPeekModal(context, roomName);
+                  },
+                ),
+                const SizedBox(height: 4),
+              ],
+              
+              // FITUR KUNCI / BUKA KUNCI OBROLAN
               ListTile(
                 leading: Icon(isLocked ? Icons.lock_open_rounded : Icons.lock_outline_rounded, color: const Color(0xFFD49A3B)),
                 title: Text(isLocked ? 'Buka Kunci Obrolan' : 'Kunci Obrolan Ini', style: const TextStyle(fontWeight: FontWeight.w600)),
                 onTap: () {
                   Navigator.pop(context);
-                  _toggleLockChat(roomName);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: const Color(0xFFD49A3B),
-                      content: Text(isLocked ? 'Obrolan berhasil dibuka' : 'Obrolan berhasil dikunci 🔒'),
-                    ),
-                  );
+                  if (isLocked) {
+                    // Wajib masukkan PIN jika ingin membuka kunci
+                    _showUnlockPinDialog(context, roomName);
+                  } else {
+                    // Langsung kunci jika sebelumnya belum terkunci
+                    _toggleLockChat(roomName);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        backgroundColor: Color(0xFFD49A3B),
+                        content: Text('Obrolan berhasil dikunci 🔒'),
+                      ),
+                    );
+                  }
                 },
               ),
             ],
@@ -484,13 +461,6 @@ class _ChatListScreenState extends State<ChatListScreen> with WidgetsBindingObse
           style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.8),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.lock_reset, color: Colors.white70, size: 26),
-            tooltip: 'Ubah PIN Keamanan',
-            onPressed: () {
-              _showChangePinDialog(context);
-            },
-          ),
           IconButton(
             icon: const Icon(Icons.edit_note_outlined, color: Colors.white70, size: 28),
             onPressed: () {
@@ -835,7 +805,7 @@ class _ContactListViewState extends State<ContactListScreen> {
             children: [
               const Text('Pilih Kontak Baru', style: TextStyle(color: Color(0xFF2C2C2C), fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 2),
-              Text('${_contacts.length} Kontak Tersedia', style: TextStyle(color: const Color(0xFF2C2C2C).withOpacity(0.5), fontSize: 12)),
+              Text('${_contacts.length} Kontak Tersedia', style: TextStyle(color: Color(0xFF2C2C2C).withOpacity(0.5), fontSize: 12)),
             ],
           ),
         ),

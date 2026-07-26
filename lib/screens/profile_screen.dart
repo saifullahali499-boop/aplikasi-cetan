@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'login_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ProfileScreen extends StatefulWidget {
  final String userId;
@@ -220,189 +221,311 @@ class _ProfileScreenState extends State<ProfileScreen> {
            }
 
            return SingleChildScrollView(
-             child: Column(
-               children: [
-                 const SizedBox(height: 25),
-                
-                 // === JUDUL HALAMAN ===
-                 Text(
-                   isMe ? 'PROFIL SAYA' : 'PROFIL ANGGOTA',
-                   style: const TextStyle(color: darkTextColor, fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 0.5),
-                 ),
-                
-                 const SizedBox(height: 25),
-                
-                 // === FOTO PROFIL BULAT ===
-                 Center(
-                   child: Stack(
-                     children: [
-                       Container(
-                         padding: const EdgeInsets.all(4),
-                         decoration: BoxDecoration(
-                           shape: BoxShape.circle,
-                           border: Border.all(color: accentColor, width: 6),
-                         ),
-                         child: const CircleAvatar(
-                           radius: 60,
-                           backgroundColor: Colors.black12,
-                           child: Icon(Icons.person, size: 70, color: darkTextColor),
-                         ),
-                       ),
-                       if (isMe)
-                         Positioned(
-                           bottom: 0,
-                           right: 0,
-                           child: CircleAvatar(
-                             radius: 20,
-                             backgroundColor: accentColor,
-                             child: IconButton(
-                               icon: const Icon(Icons.camera_alt_outlined, size: 18, color: Colors.white),
-                               onPressed: () {
-                                 // Nanti dihubungkan dengan image_picker
-                               },
-                             ),
-                           ),
-                         )
-                     ],
-                   ),
-                 ),
-                 const SizedBox(height: 20),
-                
-                 // Nama User
-                 Text(
-                   isMe ? '$liveName (Anda)' : liveName,
-                   style: const TextStyle(color: darkTextColor, fontSize: 24, fontWeight: FontWeight.bold),
-                 ),
-                
-                 // ID Unik User
-                 Text(
-                   'ID: ${widget.userId.length > 12 ? widget.userId.substring(0, 12) : widget.userId}...',
-                   style: const TextStyle(color: Colors.black45, fontSize: 13),
-                 ),
-                 const SizedBox(height: 30),
-                
-                 // === KOTAK STATUS PIKET ===
-                 Padding(
-                   padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                   child: InkWell(
-                     onTap: isMe ? () => _editStatusDialog(liveStatus) : null,
-                     borderRadius: BorderRadius.circular(15),
-                     child: Container(
-                       width: double.infinity,
-                       padding: const EdgeInsets.all(15),
-                       decoration: BoxDecoration(
-                         color: Colors.white,
-                         border: Border.all(color: Colors.black12),
-                         borderRadius: BorderRadius.circular(15),
-                         boxShadow: const [
-                           BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
-                         ],
-                       ),
-                       child: Column(
-                         crossAxisAlignment: CrossAxisAlignment.start,
-                         children: [
-                           Row(
-                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                             children: [
-                               const Text(
-                                 'STATUS PIKET',
-                                 style: TextStyle(color: accentColor, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
-                               ),
-                               if (isMe) const Icon(Icons.edit_outlined, size: 14, color: accentColor),
-                             ],
-                           ),
-                           const SizedBox(height: 5),
-                           Text(
-                             liveStatus,
-                             style: const TextStyle(color: darkTextColor, fontSize: 15, fontStyle: FontStyle.italic),
-                           ),
-                         ],
-                       ),
-                     ),
-                   ),
-                 ),
-                 const SizedBox(height: 30),
-                
-                 // === MENU MANAGEMENT (HANYA MUNCUL JIKA PROFIL SAYA) ===
-                 if (isMe)
-                   Padding(
-                     padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                     child: Column(
-                       children: [
-                         // Menu Akun
-                         ListTile(
-                           leading: const Icon(Icons.key_outlined, color: Colors.black54),
-                           title: const Text('Akun', style: TextStyle(color: darkTextColor)),
-                           trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.black38),
-                           onTap: () => _showAccountDetailsDialog(liveName),
-                         ),
-                        
-                         // Menu Tampilkan Status Jaringan (Switch)
-                         SwitchListTile(
-                           secondary: const Icon(Icons.wifi_outlined, color: Colors.black54),
-                           title: const Text('Tampilkan Status Jaringan', style: TextStyle(color: darkTextColor)),
-                           subtitle: const Text('Sembunyikan atau tampilkan status koneksi Anda di chat', style: TextStyle(fontSize: 11, color: Colors.black45)),
-                           activeColor: accentColor,
-                           value: _isStatusVisible,
-                           onChanged: (bool value) async {
-                             setState(() {
-                               _isStatusVisible = value;
-                             });
+  child: Column(
+    children: [
+      const SizedBox(height: 25),
+     
+      // === JUDUL HALAMAN ===
+      Text(
+        isMe ? 'PROFIL SAYA' : 'PROFIL ANGGOTA',
+        style: const TextStyle(color: darkTextColor, fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: 0.5),
+      ),
+     
+      const SizedBox(height: 25),
+     
+      // === FOTO PROFIL BULAT ===
+      Center(
+        child: Stack(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: accentColor, width: 6),
+              ),
+              child: const CircleAvatar(
+                radius: 60,
+                backgroundColor: Colors.black12,
+                child: Icon(Icons.person, size: 70, color: darkTextColor),
+              ),
+            ),
+            if (isMe)
+              Positioned(
+                bottom: 0,
+                right: 0,
+                child: CircleAvatar(
+                  radius: 20,
+                  backgroundColor: accentColor,
+                  child: IconButton(
+                    icon: const Icon(Icons.camera_alt_outlined, size: 18, color: Colors.white),
+                    onPressed: () {
+                      // Nanti dihubungkan dengan image_picker
+                    },
+                  ),
+                ),
+              )
+          ],
+        ),
+      ),
+      const SizedBox(height: 20),
+     
+      // Nama User
+      Text(
+        isMe ? '$liveName (Anda)' : liveName,
+        style: const TextStyle(color: darkTextColor, fontSize: 24, fontWeight: FontWeight.bold),
+      ),
+     
+      // ID Unik User
+      Text(
+        'ID: ${widget.userId.length > 12 ? widget.userId.substring(0, 12) : widget.userId}...',
+        style: const TextStyle(color: Colors.black45, fontSize: 13),
+      ),
+      const SizedBox(height: 30),
 
-                             // Simpan ke Firestore
-                             await FirebaseFirestore.instance.collection('users').doc(widget.userId).set({
-                               'showStatus': value,
-                             }, SetOptions(merge: true));
+      // === KOTAK STATUS PIKET ===
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        child: InkWell(
+          onTap: isMe ? () => _editStatusDialog(liveStatus) : null,
+          borderRadius: BorderRadius.circular(15),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(15),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: Colors.black12),
+              borderRadius: BorderRadius.circular(15),
+              boxShadow: const [
+                BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'STATUS PIKET',
+                      style: TextStyle(color: accentColor, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
+                    ),
+                    if (isMe) const Icon(Icons.edit_outlined, size: 14, color: accentColor),
+                  ],
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  liveStatus,
+                  style: const TextStyle(color: darkTextColor, fontSize: 15, fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(height: 30),
+     
+      // === MENU MANAGEMENT (HANYA MUNCUL JIKA PROFIL SAYA) ===
+      if (isMe)
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+          child: Column(
+            children: [
+              // Menu Akun
+              ListTile(
+                leading: const Icon(Icons.key_outlined, color: Colors.black54),
+                title: const Text('Akun', style: TextStyle(color: darkTextColor)),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.black38),
+                onTap: () => _showAccountDetailsDialog(liveName),
+              ),
+             
+              // Menu Ubah PIN Keamanan (BARU DISISIPKAN DI SINI)
+              ListTile(
+                leading: const Icon(Icons.lock_reset, color: Color(0xFFD49A3B)),
+                title: const Text('Ubah PIN Keamanan', style: TextStyle(color: darkTextColor, fontWeight: FontWeight.w600)),
+                subtitle: const Text('Ganti PIN untuk membuka kunci obrolan', style: TextStyle(fontSize: 11, color: Colors.black54)),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.black38),
+                onTap: () {
+                  _showChangePinDialog(context);
+                },
+              ),
 
-                             if (context.mounted) {
-                               ScaffoldMessenger.of(context).showSnackBar(
-                                 SnackBar(
-                                   content: Text(value ? 'Status jaringan ditampilkan' : 'Status jaringan disembunyikan'),
-                                   duration: const Duration(seconds: 1),
-                                 ),
-                               );
-                             }
-                           },
-                         ),
+              // Menu Tampilkan Status Jaringan (Switch)
+              SwitchListTile(
+                secondary: const Icon(Icons.wifi_outlined, color: Colors.black54),
+                title: const Text('Tampilkan Status Jaringan', style: TextStyle(color: darkTextColor)),
+                subtitle: const Text('Sembunyikan atau tampilkan status koneksi Anda di chat', style: TextStyle(fontSize: 11, color: Colors.black45)),
+                activeColor: accentColor,
+                value: _isStatusVisible,
+                onChanged: (bool value) async {
+                  setState(() {
+                    _isStatusVisible = value;
+                  });
 
-                         // Menu Pesan Berbintang
-                         ListTile(
-                           leading: const Icon(Icons.star_border, color: Colors.black54),
-                           title: const Text('Pesan Berbintang', style: TextStyle(color: darkTextColor)),
-                           trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.black38),
-                           onTap: _showStarredMessagesDialog,
-                         ),
-                        
-                         // Menu Privasi
-                         ListTile(
-                           leading: const Icon(Icons.lock_outline, color: Colors.black54),
-                           title: const Text('Privasi', style: TextStyle(color: darkTextColor)),
-                           trailing: Text(livePrivacy, style: const TextStyle(color: Colors.black38, fontSize: 12)),
-                           onTap: () => _showPrivacyDialog(livePrivacy),
-                         ),
-                        
-                         const Divider(color: Colors.black12, height: 30),
-                        
-                         // Tombol Keluar
-                         ListTile(
-                           leading: const Icon(Icons.logout, color: Colors.redAccent),
-                           title: const Text('Keluar (Pintu Kelas)', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-                           onTap: () async {
-                             await FirebaseAuth.instance.signOut();
-                             if (context.mounted) {
-                               Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
-                             }
-                           },
-                         ),
-                       ],
-                     ),
-                   ),
-               ],
-             ),
-           );
+                  // Simpan ke Firestore
+                  await FirebaseFirestore.instance.collection('users').doc(widget.userId).set({
+                    'showStatus': value,
+                  }, SetOptions(merge: true));
+
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(value ? 'Status jaringan ditampilkan' : 'Status jaringan disembunyikan'),
+                        duration: const Duration(seconds: 1),
+                      ),
+                    );
+                  }
+                },
+              ),
+
+              // Menu Pesan Berbintang
+              ListTile(
+                leading: const Icon(Icons.star_border, color: Colors.black54),
+                title: const Text('Pesan Berbintang', style: TextStyle(color: darkTextColor)),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: Colors.black38),
+                onTap: _showStarredMessagesDialog,
+              ),
+             
+              // Menu Privasi
+              ListTile(
+                leading: const Icon(Icons.lock_outline, color: Colors.black54),
+                title: const Text('Privasi', style: TextStyle(color: darkTextColor)),
+                trailing: Text(livePrivacy, style: const TextStyle(color: Colors.black38, fontSize: 12)),
+                onTap: () => _showPrivacyDialog(livePrivacy),
+              ),
+             
+              const Divider(color: Colors.black12, height: 30),
+             
+              // Tombol Keluar
+              ListTile(
+                leading: const Icon(Icons.logout, color: Colors.redAccent),
+                title: const Text('Keluar (Pintu Kelas)', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                onTap: () async {
+                  await FirebaseAuth.instance.signOut();
+                  if (context.mounted) {
+                    Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+    ],
+  ),
+);
          },
        ),
      ),
    );
  }
+ // Fungsi untuk menampilkan pop-up dialog ubah PIN
+  void _showChangePinDialog(BuildContext context) {
+    final TextEditingController oldPinController = TextEditingController();
+    final TextEditingController newPinController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: Color(0xFF2C2C2C), width: 2),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Row(
+            children: [
+              Icon(Icons.lock_reset, color: Color(0xFFD49A3B)),
+              SizedBox(width: 8),
+              Text('Ubah PIN Keamanan', style: TextStyle(color: Color(0xFF2C2C2C), fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('PIN Lama:', style: TextStyle(fontSize: 12, color: Colors.black54)),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF6F6F4),
+                  border: Border.all(color: const Color(0xFF2C2C2C).withOpacity(0.2)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: TextField(
+                  controller: oldPinController,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  style: const TextStyle(color: Color(0xFF2C2C2C), letterSpacing: 8, fontSize: 16),
+                  decoration: const InputDecoration(
+                    hintText: '••••',
+                    hintStyle: TextStyle(color: Colors.black38, letterSpacing: 8),
+                    border: InputBorder.none,
+                    counterText: "",
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text('PIN Baru (4 Digit):', style: TextStyle(fontSize: 12, color: Colors.black54)),
+              const SizedBox(height: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF6F6F4),
+                  border: Border.all(color: const Color(0xFF2C2C2C).withOpacity(0.2)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: TextField(
+                  controller: newPinController,
+                  obscureText: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: 4,
+                  style: const TextStyle(color: Color(0xFF2C2C2C), letterSpacing: 8, fontSize: 16),
+                  decoration: const InputDecoration(
+                    hintText: '••••',
+                    hintStyle: TextStyle(color: Colors.black38, letterSpacing: 8),
+                    border: InputBorder.none,
+                    counterText: "",
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('BATAL', style: TextStyle(color: Colors.black45, fontWeight: FontWeight.bold)),
+            ),
+            TextButton(
+              onPressed: () async {
+                final prefs = await SharedPreferences.getInstance();
+                String savedPin = prefs.getString('app_pin') ?? "1234";
+
+                if (oldPinController.text != savedPin) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(backgroundColor: Colors.red, content: Text('PIN Lama yang dimasukkan salah!')),
+                  );
+                  return;
+                }
+                if (newPinController.text.length != 4) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(backgroundColor: Colors.red, content: Text('PIN Baru harus tepat 4 digit!')),
+                  );
+                  return;
+                }
+
+                await prefs.setString('app_pin', newPinController.text);
+
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(backgroundColor: Color(0xFFD49A3B), content: Text('PIN Keamanan berhasil diubah!')),
+                );
+              },
+              child: const Text('SIMPAN', style: TextStyle(color: Color(0xFFD49A3B), fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
