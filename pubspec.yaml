@@ -60,4 +60,4 @@ flutter_launcher_icons:
   image_path: "assets/icons/logo.png"
 
 dependency_overrides:
-  record_platform_interface: ^1.2.2
+  record_platform_interface: ^1.2.0
