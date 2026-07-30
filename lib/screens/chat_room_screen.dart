@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:zego_express_engine/zego_express_engine.dart';
+import 'webrtc_call_screen.dart'; // Sesuaikan dengan nama file Anda
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -29,9 +29,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
  final FirebaseAuth _auth = FirebaseAuth.instance;
  final ImagePicker _picker = ImagePicker();
 
- final int _appId = 1301579572;
- final String _appSign = "fb312780b8fe4320f92e5691be0c3dbb1c5a2c86c425c46214858c0a59c16bcb";
-
  Widget? _localViewWidget;
  int? _localViewID;
  StreamSubscription<QuerySnapshot>? _chatSubscription;
@@ -49,7 +46,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
  @override
  void initState() {
    super.initState();
-   _initZegoEngine();
    _listenToMessages();
 
    _chatsStream = _firestore
@@ -57,15 +53,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
        .where('room', isEqualTo: widget.name)
        .orderBy('timestamp', descending: true)
        .snapshots();
- }
-
- void _initZegoEngine() async {
-   ZegoEngineProfile profile = ZegoEngineProfile(
-     _appId,
-     ZegoScenario.Default,
-     appSign: _appSign,
-   );
-   await ZegoExpressEngine.createEngineWithProfile(profile);
  }
 
  void _listenToMessages() {
@@ -362,91 +349,26 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
    );
  }
 
- void _startCall(bool isVideo) async {
-   String type = isVideo ? "Video Call" : "Telepon Suara";
-   final currentUser = _auth.currentUser;
-   if (currentUser == null) return;
+ void _startCall(bool isVideo) {
+  final currentUser = _auth.currentUser;
+  if (currentUser == null) return;
 
-   String roomCallId = widget.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
-   ZegoUser user = ZegoUser(currentUser.uid, currentUser.displayName ?? "User");
-   await ZegoExpressEngine.instance.loginRoom(roomCallId, user);
+  // Buat ID Call unik berdasarkan nama chat atau ruangan
+  String callId = widget.name.replaceAll(RegExp(r'[^a-zA-Z0-9]'), '_').toLowerCase();
 
-   if (isVideo) {
-     await ZegoExpressEngine.instance.createCanvasView((viewID) {
-       setState(() {
-         _localViewID = viewID;
-         ZegoCanvas canvas = ZegoCanvas(viewID, viewMode: ZegoViewMode.AspectFill);
-         ZegoExpressEngine.instance.startPreview(canvas: canvas);
-       });
-     }).then((widgetView) {
-       setState(() {
-         _localViewWidget = widgetView;
-       });
-     });
-   }
-
-   String streamId = "${roomCallId}_${currentUser.uid}_stream";
-   await ZegoExpressEngine.instance.startPublishingStream(streamId);
-
-   if (!mounted) return;
-
-   showDialog(
-     context: context,
-     barrierDismissible: false,
-     builder: (context) => StatefulBuilder(
-       builder: (context, setDialogState) {
-         return AlertDialog(
-           backgroundColor: const Color(0xFF2D2D2D),
-           title: Text(type, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-           content: Column(
-             mainAxisSize: MainAxisSize.min,
-             children: [
-               if (isVideo && _localViewWidget != null)
-                 Container(
-                   width: 220,
-                   height: 300,
-                   decoration: BoxDecoration(
-                     borderRadius: BorderRadius.circular(12),
-                     border: Border.all(color: const Color(0xFFAB873A), width: 2),
-                   ),
-                   child: ClipRRect(
-                     borderRadius: BorderRadius.circular(10),
-                     child: _localViewWidget,
-                   ),
-                 )
-               else
-                 const CircleAvatar(
-                   radius: 40,
-                   backgroundColor: Colors.white10,
-                   child: Icon(Icons.person, size: 50, color: Colors.white60),
-                 ),
-               const SizedBox(height: 16),
-               Text('Kamar Aktif: $roomCallId', style: const TextStyle(color: Colors.white38, fontSize: 11)),
-               const SizedBox(height: 8),
-               const Text('Saluran terhubung...', style: TextStyle(color: Color(0xFFD2B46A), fontSize: 12)),
-             ],
-           ),
-           actions: [
-             TextButton(
-               child: const Text('Tutup', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-               onPressed: () async {
-                 if (isVideo) {
-                   await ZegoExpressEngine.instance.stopPreview();
-                   if (_localViewID != null) {
-                     await ZegoExpressEngine.instance.destroyCanvasView(_localViewID!);
-                   }
-                 }
-                 await ZegoExpressEngine.instance.stopPublishingStream();
-                 await ZegoExpressEngine.instance.logoutRoom(roomCallId);
-                 Navigator.pop(context);
-               },
-             )
-           ],
-         );
-       }
-     ),
-   );
- }
+  // Langsung navigasi ke WebRTCCallScreen sebagai Penelepon (isCaller: true)
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => WebRTCCallScreen(
+        callId: callId,
+        isVideoCall: isVideo,
+        receiverName: widget.name,
+        isCaller: true, 
+      ),
+    ),
+  );
+}
 
  void _showChatMenu(BuildContext context, Map<String, dynamic> chat, String messageId, String time) {
    showModalBottomSheet(
@@ -648,7 +570,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
    _messageController.dispose();
    _chatSubscription?.cancel();
    _audioRecorder.dispose(); // Matikan sensor mic saat keluar room
-   ZegoExpressEngine.destroyEngine();
    super.dispose();
  }
 

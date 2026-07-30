@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'group_info_screen.dart';
-
-// === TAMBAHAN IMPORT BARU UNTUK MEDIA ===
+import 'webrtc_call_screen.dart';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class GroupChatScreen extends StatefulWidget {
@@ -24,7 +23,86 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final ScrollController _scrollController = ScrollController();
 
-  // 1. FUNGSI KIRIM TEKS BIASA (BAWAAN KAMU)
+  @override
+  void initState() {
+    super.initState();
+    _listenForIncomingCalls();
+  }
+
+  // === 1. LISTENER PANGGILAN MASUK DARI FIRESTORE ===
+  void _listenForIncomingCalls() {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return;
+
+    final String callRoomId = "group_call_${widget.groupName}";
+
+    FirebaseFirestore.instance
+        .collection('calls')
+        .doc(callRoomId)
+        .snapshots()
+        .listen((snapshot) {
+      if (!snapshot.exists) return;
+
+      final data = snapshot.data();
+      if (data == null) return;
+
+      final String status = data['status'] ?? '';
+      final String callerId = data['callerId'] ?? '';
+
+      if (status == 'calling' && callerId != currentUser.uid) {
+        if (mounted) {
+          _showIncomingCallDialog(callRoomId);
+        }
+      }
+    });
+  }
+
+  // === 2. DIALOG POP-UP UNTUK MENERIMA / MENOLAK PANGGILAN ===
+  void _showIncomingCallDialog(String callRoomId) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF2D2B2A),
+        title: const Text(
+          "Panggilan Masuk",
+          style: TextStyle(color: Colors.white, fontSize: 18),
+        ),
+        content: Text(
+          "Seseorang memulai panggilan di grup ${widget.groupName}.",
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+            },
+            child: const Text("Tolak", style: TextStyle(color: Colors.redAccent)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5BE5F)),
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => WebRTCCallScreen(
+                    callId: callRoomId,
+                    isVideoCall: true, // Bisa otomatis menyesuaikan atau default video/audio
+                    receiverName: widget.groupName,
+                    isCaller: false,
+                  ),
+                ),
+              );
+            },
+            child: const Text("Gabung", style: TextStyle(color: Color(0xFF1E1400))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // === 3. FUNGSI KIRIM TEKS BIASA ===
   void _sendMessage() async {
     final user = _auth.currentUser;
     if (_messageController.text.trim().isEmpty || user == null) return;
@@ -49,35 +127,31 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     );
   }
 
-  // === 2. FUNGSI BARU: PROSES UPLOAD KE FIREBASE STORAGE ===
+  // === 4. FUNGSI PROSES UPLOAD KE FIREBASE STORAGE ===
   Future<void> _uploadAndSendFile(Uint8List fileBytes, String fileName, String type) async {
     final user = _auth.currentUser;
     if (user == null) return;
 
     try {
-      // Notifikasi loading instan agar user tahu proses sedang berjalan
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Mengirim media...'), duration: Duration(seconds: 2)),
       );
 
-      // Membuat folder unik di Firebase Storage
       String uniqueName = '${DateTime.now().millisecondsSinceEpoch}_$fileName';
       Reference storageRef = FirebaseStorage.instance.ref().child('chat_files/$uniqueName');
 
-      // Upload data bytes (Aman untuk Android & Web)
       UploadTask uploadTask = storageRef.putData(fileBytes);
       TaskSnapshot snapshot = await uploadTask;
       String downloadUrl = await snapshot.ref.getDownloadURL();
 
-      // Simpan metadata ke Firestore chats
       await FirebaseFirestore.instance.collection('chats').add({
         'room': widget.groupName,
         'text': type == 'image' ? '📷 Foto' : '📎 Dokumen: $fileName',
         'senderUid': user.uid,
         'senderName': user.displayName ?? user.email ?? 'Anggota Kapur',
         'timestamp': FieldValue.serverTimestamp(),
-        'type': type, // nilainya nanti 'image' atau 'file'
-        'fileUrl': downloadUrl, // Link unduh dari storage
+        'type': type, 
+        'fileUrl': downloadUrl, 
         'isRead': false,
       });
 
@@ -94,7 +168,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     }
   }
 
-  // === 3. FUNGSI BARU: MEMBUKA KAMERA ===
+  // === 5. FUNGSI MEMBUKA KAMERA ===
   Future<void> _openCamera() async {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.camera, imageQuality: 70);
@@ -105,28 +179,67 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     }
   }
 
-  // === 4. FUNGSI BARU: MEMILIH FILE / DOKUMEN DARI HP ===
+  // === 6. FUNGSI MEMILIH FILE / DOKUMEN DARI HP ===
   Future<void> _pickFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.any,
-      withData: true, // Wajib true agar byte data terbaca sempurna
+      withData: true, 
     );
 
     if (result != null && result.files.first.bytes != null) {
       Uint8List fileBytes = result.files.first.bytes!;
       String fileName = result.files.first.name;
-      
-      // Validasi ekstensi untuk menentukan jenis tampilan gelembung chat nanti
-      String type = (fileName.toLowerCase().endsWith('.jpg') || 
-                     fileName.toLowerCase().endsWith('.png') || 
-                     fileName.toLowerCase().endsWith('.jpeg') ||
-                     fileName.toLowerCase().endsWith('.webp') ||
-                     fileName.toLowerCase().endsWith('.gif')) 
-          ? 'image' 
+     
+      String type = (fileName.toLowerCase().endsWith('.jpg') ||
+                    fileName.toLowerCase().endsWith('.png') ||
+                    fileName.toLowerCase().endsWith('.jpeg') ||
+                    fileName.toLowerCase().endsWith('.webp') ||
+                    fileName.toLowerCase().endsWith('.gif'))
+          ? 'image'
           : 'file';
 
       await _uploadAndSendFile(fileBytes, fileName, type);
     }
+  }
+
+  // === 7. FUNGSI MEMULAI PANGGILAN VIDEO (WEBRTC) ===
+  void _startVideoCall() {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return;
+
+    final String callRoomId = "group_call_${widget.groupName}";
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => WebRTCCallScreen(
+          callId: callRoomId,
+          isVideoCall: true,
+          receiverName: widget.groupName,
+          isCaller: true,
+        ),
+      ),
+    );
+  }
+
+  // === 8. FUNGSI MEMULAI PANGGILAN SUARA / AUDIO CALL (WEBRTC) ===
+  void _startAudioCall() {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return;
+
+    final String callRoomId = "group_call_${widget.groupName}";
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => WebRTCCallScreen(
+          callId: callRoomId,
+          isVideoCall: false, // <-- Diatur ke false agar hanya audio saja
+          receiverName: widget.groupName,
+          isCaller: true,
+        ),
+      ),
+    );
   }
 
   @override
@@ -134,9 +247,9 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
     final currentUser = _auth.currentUser;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F5F7), // Latar belakang abu-abu terang premium
+      backgroundColor: const Color(0xFFF4F5F7), 
 
-      // === APPBAR HITAM CHARCOAL (MATCHING 100%) ===
+      // === APPBAR HITAM CHARCOAL ===
       appBar: AppBar(
         backgroundColor: const Color(0xFF2D2B2A),
         elevation: 2,
@@ -183,18 +296,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
           ),
         ),
         actions: [
+          // Tombol Panggilan Suara (Audio Call)
           IconButton(
             icon: const Icon(Icons.phone_outlined, color: Colors.white70),
-            onPressed: () {},
+            onPressed: _startAudioCall, // <-- Sekarang terhubung ke fungsi _startAudioCall
           ),
+          // Tombol Panggilan Video (Video Call)
           IconButton(
             icon: const Icon(Icons.videocam_outlined, color: Colors.white70),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => GroupInfoScreen(groupName: widget.groupName)),
-              );
-            },
+            onPressed: _startVideoCall, 
           ),
           const SizedBox(width: 4),
         ],
@@ -228,19 +338,16 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     final String senderName = data['senderName'] ?? 'Anonim';
                     final String text = data['text'] ?? '';
                     final bool isRead = data['isRead'] ?? false;
-                    
-                    // Deteksi tipe pesan dan ambil link file
+                   
                     final String messageType = data['type'] ?? 'text';
                     final String? fileUrl = data['fileUrl'];
 
-                    // Format Jam & Menit
                     String timeString = "00:00";
                     if (data['timestamp'] != null) {
                       DateTime dt = (data['timestamp'] as Timestamp).toDate();
                       timeString = "${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}";
                     }
 
-                    // Pembeda Warna & Ekor Balon
                     Color bubbleColor = isMe ? const Color(0xFFE5BE5F) : const Color(0xFFECECE9);
                     Color textColor = const Color(0xFF1E1400);
 
@@ -280,9 +387,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                               const SizedBox(height: 3),
                             ],
 
-                            // === LOGIKA BARU UNTUK DISPLAY TIPE GELEMBUNG CHAT ===
                             if (messageType == 'image' && fileUrl != null) ...[
-                              // TAMPILAN JIKA PESAN BERUPA GAMBAR
                               GestureDetector(
                                 onTap: () async {
                                   final Uri url = Uri.parse(fileUrl);
@@ -312,7 +417,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                                 ),
                               ),
                             ] else if (messageType == 'file' && fileUrl != null) ...[
-                              // TAMPILAN JIKA PESAN BERUPA FILE DOKUMEN
                               InkWell(
                                 onTap: () async {
                                   final Uri url = Uri.parse(fileUrl);
@@ -344,7 +448,6 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                               ),
                               const SizedBox(height: 4),
                             ] else ...[
-                              // DEFAULT: TAMPILAN JIKA PESAN TEKS BIASA
                               Text(
                                 text,
                                 style: TextStyle(
@@ -385,7 +488,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             ),
           ),
 
-          // === BAR INPUT PESAN MATCHING 100% ===
+          // === BAR INPUT PESAN ===
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             color: const Color(0xFFF4F5F7),
@@ -423,17 +526,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     ),
                   ),
                   const SizedBox(width: 4),
-                  
-                  // === AKTIVASI TOMBOL ATTACH FILE ===
+                 
                   IconButton(
                     icon: const Icon(Icons.attach_file_rounded, color: Colors.black54, size: 24),
-                    onPressed: _pickFile, // Menyambung ke handler file picker
+                    onPressed: _pickFile,
                   ),
-                  
-                  // === AKTIVASI TOMBOL KAMERA ===
+                 
                   IconButton(
                     icon: const Icon(Icons.camera_alt_outlined, color: Colors.black54, size: 24),
-                    onPressed: _openCamera, // Menyambung ke handler kamera asli HP
+                    onPressed: _openCamera,
                   ),
                 ],
               ),
