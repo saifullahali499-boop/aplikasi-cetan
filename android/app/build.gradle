@@ -26,7 +26,7 @@ if (flutterVersionName == null) {
 
 android {
     // === PERBAIKAN: Namespace diubah agar sinkron dengan Manifest dan struktur proyek ===
-    namespace "com.example.flitter"
+    namespace "com.saifullah.cetan"
     compileSdk flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
@@ -45,7 +45,7 @@ android {
 
     defaultConfig {
         // === PERBAIKAN: ApplicationId diubah agar sinkron dengan lokasi MainActivity ===
-        applicationId "com.example.flitter"
+        applicationId "com.saifullah.cetan"
         
         // Sudah Tepat: Syarat Firebase Minimal SDK 23
         minSdk 23
