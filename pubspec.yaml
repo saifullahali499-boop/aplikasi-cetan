@@ -26,7 +26,7 @@ dependencies:
   livekit_client: ^2.0.0
 
   # --- UTENSIL VOICE NOTE & AUDIO PLAYER ---
-  record: ^5.1.2
+  record: ^5.2.1
   audioplayers: ^6.0.0
   http: ^1.2.0
 
