@@ -3,7 +3,7 @@ description: Aplikasi Papan Tulis Chat dan Mading Estetik menggunakan Flutter & 
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.5.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -26,7 +26,7 @@ dependencies:
   livekit_client: ^2.0.0
 
   # --- UTENSIL VOICE NOTE & AUDIO PLAYER ---
-  record: ^5.2.1
+  record: ^6.1.0
   audioplayers: ^6.0.0
   http: ^1.2.0
 
