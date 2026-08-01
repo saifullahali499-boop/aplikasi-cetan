@@ -60,7 +60,6 @@ class _LoginScreenState extends State<LoginScreen> {
                await userCredential.user?.updateDisplayName(name);
              }
              
-             // PERBAIKAN: Gunakan addPostFrameCallback agar aman dari crash saat navigasi otomatis
              if (mounted) {
                WidgetsBinding.instance.addPostFrameCallback((_) {
                  Navigator.pushReplacement(
@@ -227,7 +226,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                              ),
                            ),
-                         ],
+                         ), // <--- PENUTUP SIZEDBOX SUDAH DITAMBAHKAN DI SINI
                  ],
 
                  // --- TAHAP 2: INPUT NAMA DAN KODE OTP ---
