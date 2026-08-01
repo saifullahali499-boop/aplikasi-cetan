@@ -9,11 +9,10 @@ import 'screens/mading_screen.dart';
 import 'screens/panggilan_screen.dart';
 import 'screens/chat_list_screen.dart';
 import 'screens/profile_screen.dart';
-import 'screens/kantin_screen.dart'; // <--- IMPORT BARU DITAMBAHKAN
+import 'screens/kantin_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
   try {
     if (kIsWeb) {
       await Firebase.initializeApp(
@@ -30,7 +29,7 @@ void main() async {
       await Firebase.initializeApp();
     }
   } catch (e) {
-    print("Error Firebase: $e");
+    debugPrint("Error Firebase: $e");
   }
   runApp(const PapanTulisChatApp());
 }
@@ -85,7 +84,7 @@ class _MainTabControllerState extends State<MainTabController> {
     const Color darkTextColor = Color(0xFF2D2B2A);
     final screenSize = MediaQuery.of(context).size;
 
-    _x ??= screenSize.width - 72;  
+    _x ??= screenSize.width - 72; 
     _y ??= screenSize.height - 120;
 
     return Container(
@@ -108,12 +107,12 @@ class _MainTabControllerState extends State<MainTabController> {
                   _currentIndex = index;
                 });
               },
-              children: [ // 1. Hapus kata 'const' dari sini
-                const PembaruanScreen(), // 2. Tambahkan const di sini jika belum ada
-                const PanggilanScreen(), // 3. Tambahkan const di sini jika belum ada
-                const KantinScreen(),    // 4. Tambahkan const di sini jika belum ada
-                const ChatListScreen(),  // 5. Tambahkan const di sini jika belum ada
-                ProfileScreen(           // 6. Bagian ini JANGAN diberi const karena ada FirebaseAuth
+              children: [
+                const PembaruanScreen(),
+                const PanggilanScreen(),
+                const KantinScreen(),
+                const ChatListScreen(),
+                ProfileScreen(
                   userId: FirebaseAuth.instance.currentUser?.uid ?? '',
                   userName: FirebaseAuth.instance.currentUser?.displayName ?? 'Profil Saya',
                 ),
