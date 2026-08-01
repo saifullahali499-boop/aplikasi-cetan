@@ -57,7 +57,7 @@ android {
 
     buildTypes {
         release {
-            //signingConfig signingConfigs.debug
+            signingConfig signingConfigs.debug
             // Sudah Tepat: false untuk development agar resource tidak hilang
             minifyEnabled false
             shrinkResources false
