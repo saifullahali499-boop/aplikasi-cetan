@@ -1,4 +1,4 @@
-import 'dart5:async';
+import 'dart:async';
 import 'package:flutter/foundation.dart'; // Untuk mendeteksi apakah di Web atau HP
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:network_info_plus/network_info_plus.dart';
