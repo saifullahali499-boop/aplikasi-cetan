@@ -1,18 +1,20 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
-// Memanggil modul halaman dari folder screens
-import 'screens/login_screen.dart';
-import 'screens/mading_screen.dart';
-import 'screens/panggilan_screen.dart';
-import 'screens/chat_list_screen.dart';
-import 'screens/profile_screen.dart';
-import 'screens/kantin_screen.dart';
+// Import halaman dari folder screens
+import 'package:papantulis_chat/screens/mading_screen.dart';
+import 'package:papantulis_chat/screens/login_screen.dart';
+import 'package:papantulis_chat/screens/panggilan_screen.dart';
+import 'package:papantulis_chat/screens/chat_list_screen.dart';
+import 'package:papantulis_chat/screens/profile_screen.dart';
+import 'package:papantulis_chat/screens/kantin_screen.dart';
 
 void main() async {
+  // Wajib dipanggil sebelum menginisialisasi plugin native/Firebase
   WidgetsFlutterBinding.ensureInitialized();
+
   try {
     if (kIsWeb) {
       await Firebase.initializeApp(
@@ -29,8 +31,9 @@ void main() async {
       await Firebase.initializeApp();
     }
   } catch (e) {
-    debugPrint("Error Firebase: $e");
+    debugPrint("Error Inisialisasi Firebase: $e");
   }
+
   runApp(const PapanTulisChatApp());
 }
 
@@ -49,7 +52,33 @@ class PapanTulisChatApp extends StatelessWidget {
           bodyMedium: TextStyle(color: Color(0xFF555555)),
         ),
       ),
-      home: const LoginScreen(),
+      // Pengecekan Sesi Login Otomatis
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(color: Color(0xFF8B5A2B)),
+              ),
+            );
+          }
+
+          if (snapshot.hasError) {
+            return Scaffold(
+              body: Center(
+                child: Text('Terjadi kesalahan: ${snapshot.error}'),
+              ),
+            );
+          }
+
+          if (snapshot.hasData && snapshot.data != null) {
+            return const MainTabController();
+          }
+
+          return const LoginScreen();
+        },
+      ),
     );
   }
 }
@@ -62,8 +91,9 @@ class MainTabController extends StatefulWidget {
 }
 
 class _MainTabControllerState extends State<MainTabController> {
-  int _currentIndex = 3;
+  int _currentIndex = 3; // Halaman default (ChatListScreen)
   late PageController _pageController;
+
   double? _x;
   double? _y;
 
@@ -71,6 +101,17 @@ class _MainTabControllerState extends State<MainTabController> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: _currentIndex);
+
+    // Inisialisasi posisi tombol floating secara presisi setelah tata letak siap
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final screenSize = MediaQuery.of(context).size;
+        setState(() {
+          _x = screenSize.width - 72;
+          _y = screenSize.height - 120;
+        });
+      }
+    });
   }
 
   @override
@@ -84,8 +125,11 @@ class _MainTabControllerState extends State<MainTabController> {
     const Color darkTextColor = Color(0xFF2D2B2A);
     final screenSize = MediaQuery.of(context).size;
 
-    _x ??= screenSize.width - 72; 
-    _y ??= screenSize.height - 120;
+    // Nilai fallback jika postFrameCallback belum berjalan
+    final currentX = _x ?? (screenSize.width - 72);
+    final currentY = _y ?? (screenSize.height - 120);
+
+    final currentUser = FirebaseAuth.instance.currentUser;
 
     return Container(
       decoration: const BoxDecoration(
@@ -100,6 +144,7 @@ class _MainTabControllerState extends State<MainTabController> {
         backgroundColor: Colors.transparent,
         body: Stack(
           children: [
+            // Area Konten Utama
             PageView(
               controller: _pageController,
               onPageChanged: (index) {
@@ -113,26 +158,32 @@ class _MainTabControllerState extends State<MainTabController> {
                 const KantinScreen(),
                 const ChatListScreen(),
                 ProfileScreen(
-                  userId: FirebaseAuth.instance.currentUser?.uid ?? '',
-                  userName: FirebaseAuth.instance.currentUser?.displayName ?? 'Profil Saya',
+                  userId: currentUser?.uid ?? '',
+                  userName: currentUser?.displayName ?? currentUser?.email ?? 'Profil Saya',
                 ),
               ],
             ),
 
+            // Tombol Navigasi Melayang (Draggable)
             Positioned(
-              left: _x,
-              top: _y,
+              left: currentX,
+              top: currentY,
               child: Draggable(
                 feedback: _buildButtonDesign(isDragging: true),
                 childWhenDragging: const SizedBox.shrink(),
                 onDragEnd: (dragDetails) {
                   setState(() {
-                    _x = dragDetails.offset.dx;
-                    _y = dragDetails.offset.dy;
-                    if (_x! < 16) _x = 16;
-                    if (_x! > screenSize.width - 72) _x = screenSize.width - 72;
-                    if (_y! < 40) _y = 40;
-                    if (_y! > screenSize.height - 100) _y = screenSize.height - 100;
+                    double newX = dragDetails.offset.dx;
+                    double newY = dragDetails.offset.dy;
+
+                    // Batasi gerakan agar tidak keluar dari area layar
+                    if (newX < 16) newX = 16;
+                    if (newX > screenSize.width - 72) newX = screenSize.width - 72;
+                    if (newY < 40) newY = 40;
+                    if (newY > screenSize.height - 100) newY = screenSize.height - 100;
+
+                    _x = newX;
+                    _y = newY;
                   });
                 },
                 child: PopupMenuButton<int>(
@@ -184,7 +235,7 @@ class _MainTabControllerState extends State<MainTabController> {
   }
 
   PopupMenuItem<int> _buildPopupItem(int value, IconData icon, String text, Color textColor) {
-    return PopupMenuItem(
+    return PopupMenuItem<int>(
       value: value,
       child: Row(
         children: [

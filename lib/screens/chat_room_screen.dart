@@ -632,19 +632,15 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                               bool showStatus = true; // Default aktif
 
                               if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-                                try {
-                                  var userDoc = snapshot.data!.docs.firstWhere(
-                                    (doc) => doc.id == widget.name || (doc.data() as Map<String, dynamic>)['name'] == widget.name,
-                                  );
-                                  var data = userDoc.data() as Map<String, dynamic>;
-                                  
-                                  // Ambil pengaturan privasi & statusnya
-                                  showStatus = data['showStatus'] ?? true;
-                                  displayStatus = data['status'] ?? 'Mobile Data';
-                                } catch (e) {
-                                  showStatus = true;
-                                }
-                              }
+  // Ambil dokumen pertama sebagai sampel/default
+  var firstDoc = snapshot.data!.docs.first;
+  var data = firstDoc.data() as Map<String, dynamic>?;
+
+  if (data != null) {
+    showStatus = data['showStatus'] ?? true;
+    displayStatus = data['status'] ?? 'Mobile Data';
+  }
+}
 
                               // JIKA PENGGUNA MEMATIKAN STATUS, SEMBUNYIKAN TAMPILANNYA
                               if (!showStatus) {
