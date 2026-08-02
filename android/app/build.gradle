@@ -1,7 +1,7 @@
 plugins {
     id "com.android.application"
     id "kotlin-android"
-    // Tambahkan plugin Google Services di bawah ini (PENTING UNTUK FIREBASE)
+    // Plugin Google Services untuk Firebase
     id "com.google.gms.google-services"
     id "dev.flutter.flutter-gradle-plugin"
 }
@@ -25,12 +25,13 @@ if (flutterVersionName == null) {
 }
 
 android {
-    // === PERBAIKAN: Namespace diubah agar sinkron dengan Manifest dan struktur proyek ===
     namespace "com.saifullah.cetan"
     compileSdk flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 
     compileOptions {
+        // PERBAIKAN: Aktifkan Core Library Desugaring untuk mendukung API Java modern di Android lama (WebRTC/LiveKit butuh ini)
+        coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
@@ -44,21 +45,23 @@ android {
     }
 
     defaultConfig {
-        // === PERBAIKAN: ApplicationId diubah agar sinkron dengan lokasi MainActivity ===
         applicationId "com.saifullah.cetan"
         
-        // Sudah Tepat: Syarat Firebase Minimal SDK 23
+        // Minimal SDK 23 (Sudah tepat untuk Firebase, LiveKit & WebRTC)
         minSdk 23
         
         targetSdk flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
+
+        // === PERBAIKAN UTAMA PENYEBAB CRASH ===
+        // Mengaktifkan MultiDex agar aplikasi tidak crash saat memuat method dari WebRTC, LiveKit, dan Firebase sekaligus
+        multiDexEnabled true
     }
 
     buildTypes {
         release {
             signingConfig signingConfigs.debug
-            // Sudah Tepat: false untuk development agar resource tidak hilang
             minifyEnabled false
             shrinkResources false
         }
@@ -69,4 +72,8 @@ flutter {
     source '../..'
 }
 
-dependencies {}
+dependencies {
+    // PERBAIKAN: Dependency pendukung MultiDex & Desugaring
+    implementation 'com.android.support:multidex:1.0.3'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+}
