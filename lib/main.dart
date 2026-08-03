@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -15,6 +16,12 @@ void main() async {
   // Wajib dipanggil sebelum menginisialisasi plugin native/Firebase
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Menangkap error global agar aplikasi TIDAK KELUAR SENDIRI jika ada crash UI
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+    debugPrint("Flutter Error Caught: ${details.exception}");
+  };
+
   try {
     if (kIsWeb) {
       await Firebase.initializeApp(
@@ -30,8 +37,10 @@ void main() async {
     } else {
       await Firebase.initializeApp();
     }
-  } catch (e) {
+    debugPrint("Firebase Berhasil Dimuat!");
+  } catch (e, stackTrace) {
     debugPrint("Error Inisialisasi Firebase: $e");
+    debugPrint("StackTrace: $stackTrace");
   }
 
   runApp(const PapanTulisChatApp());
@@ -52,30 +61,43 @@ class PapanTulisChatApp extends StatelessWidget {
           bodyMedium: TextStyle(color: Color(0xFF555555)),
         ),
       ),
-      // Pengecekan Sesi Login Otomatis
+      // Pengecekan Sesi Login Otomatis dengan Penanganan Error Anti-Crash
       home: StreamBuilder<User?>(
         stream: FirebaseAuth.instance.authStateChanges(),
         builder: (context, snapshot) {
+          // 1. Saat loading status autentikasi
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Scaffold(
+              backgroundColor: Color(0xFFFDFDFD),
               body: Center(
                 child: CircularProgressIndicator(color: Color(0xFF8B5A2B)),
               ),
             );
           }
 
+          // 2. Jika ada error jaringan/Firebase
           if (snapshot.hasError) {
             return Scaffold(
+              backgroundColor: const Color(0xFFFDFDFD),
               body: Center(
-                child: Text('Terjadi kesalahan: ${snapshot.error}'),
+                child: Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Text(
+                    'Gagal memuat sesi: ${snapshot.error}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
               ),
             );
           }
 
+          // 3. Jika user sudah login
           if (snapshot.hasData && snapshot.data != null) {
             return const MainTabController();
           }
 
+          // 4. Jika belum login
           return const LoginScreen();
         },
       ),
@@ -102,14 +124,16 @@ class _MainTabControllerState extends State<MainTabController> {
     super.initState();
     _pageController = PageController(initialPage: _currentIndex);
 
-    // Inisialisasi posisi tombol floating secara presisi setelah tata letak siap
+    // Inisialisasi posisi tombol floating secara aman setelah layout dirender
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         final screenSize = MediaQuery.of(context).size;
-        setState(() {
-          _x = screenSize.width - 72;
-          _y = screenSize.height - 120;
-        });
+        if (screenSize.width > 0 && screenSize.height > 0) {
+          setState(() {
+            _x = screenSize.width - 72;
+            _y = screenSize.height - 120;
+          });
+        }
       }
     });
   }
@@ -125,9 +149,9 @@ class _MainTabControllerState extends State<MainTabController> {
     const Color darkTextColor = Color(0xFF2D2B2A);
     final screenSize = MediaQuery.of(context).size;
 
-    // Nilai fallback jika postFrameCallback belum berjalan
-    final currentX = _x ?? (screenSize.width - 72);
-    final currentY = _y ?? (screenSize.height - 120);
+    // Proteksi batas posisi floating button
+    final currentX = _x ?? (screenSize.width > 0 ? screenSize.width - 72 : 200.0);
+    final currentY = _y ?? (screenSize.height > 0 ? screenSize.height - 120 : 500.0);
 
     final currentUser = FirebaseAuth.instance.currentUser;
 
@@ -147,6 +171,7 @@ class _MainTabControllerState extends State<MainTabController> {
             // Area Konten Utama
             PageView(
               controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(), // Disarankan agar swipe tab tidak mengganggu gesture chat
               onPageChanged: (index) {
                 setState(() {
                   _currentIndex = index;
@@ -176,7 +201,7 @@ class _MainTabControllerState extends State<MainTabController> {
                     double newX = dragDetails.offset.dx;
                     double newY = dragDetails.offset.dy;
 
-                    // Batasi gerakan agar tidak keluar dari area layar
+                    // Batasi gerakan agar tidak keluar dari area layar HP
                     if (newX < 16) newX = 16;
                     if (newX > screenSize.width - 72) newX = screenSize.width - 72;
                     if (newY < 40) newY = 40;
@@ -223,7 +248,7 @@ class _MainTabControllerState extends State<MainTabController> {
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDragging ? 0.4 : 0.26),
+              color: isDragging ? Colors.black45 : Colors.black26, // Disesuaikan agar aman dari deprecated/crash
               blurRadius: isDragging ? 14 : 6,
               offset: Offset(0, isDragging ? 8 : 3),
             ),
