@@ -1,4 +1,4 @@
-package com.example.flitter
+package com.saifullah.cetan
 
 import io.flutter.embedding.android.FlutterActivity
 
