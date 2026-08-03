@@ -39,6 +39,7 @@ dependencies:
 
   # --- izin kamera dan mikrofone ---
   permission_handler: ^11.3.1
+  firebase_crashlytics: ^4.3.10
 
 dev_dependencies:
   flutter_test:

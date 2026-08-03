@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart'; // Import Crashlytics
 
 // Import halaman dari folder screens
 import 'package:papantulis_chat/screens/mading_screen.dart';
@@ -42,6 +43,14 @@ void main() async {
     debugPrint("Error Inisialisasi Firebase: $e");
     debugPrint("StackTrace: $stackTrace");
   }
+
+  // === DUA BARIS KODE FIREBASE CRASHLYTICS ===
+  // Mengirim laporan crash otomatis dari HP ke Firebase Console
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
 
   runApp(const PapanTulisChatApp());
 }
