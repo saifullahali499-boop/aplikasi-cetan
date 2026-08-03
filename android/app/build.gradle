@@ -1,7 +1,7 @@
 plugins {
     id "com.android.application"
     id "kotlin-android"
-    // Plugin Google Services untuk Firebase
+    // Plugin Google Services untuk membaca file google-services.json (Firebase)
     id "com.google.gms.google-services"
     id "dev.flutter.flutter-gradle-plugin"
 }
@@ -30,7 +30,7 @@ android {
     ndkVersion flutter.ndkVersion
 
     compileOptions {
-        // PERBAIKAN: Aktifkan Core Library Desugaring untuk mendukung API Java modern di Android lama (WebRTC/LiveKit butuh ini)
+        // PERBAIKAN: Aktifkan Core Library Desugaring untuk mendukung API Java modern di Android (WebRTC/LiveKit butuh ini)
         coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
@@ -47,15 +47,14 @@ android {
     defaultConfig {
         applicationId "com.saifullah.cetan"
         
-        // Minimal SDK 23 (Sudah tepat untuk Firebase, LiveKit & WebRTC)
-        minSdk 23
+        // PERBAIKAN: Minimal SDK dinaikkan ke 24 (Wajib untuk LiveKit, WebRTC & Firebase agar tidak crash)
+        minSdk 24
         
         targetSdk flutter.targetSdkVersion
         versionCode flutterVersionCode.toInteger()
         versionName flutterVersionName
 
-        // === PERBAIKAN UTAMA PENYEBAB CRASH ===
-        // Mengaktifkan MultiDex agar aplikasi tidak crash saat memuat method dari WebRTC, LiveKit, dan Firebase sekaligus
+        // PERBAIKAN: Mengaktifkan MultiDex agar aplikasi tidak crash saat memuat metode yang banyak dari WebRTC, LiveKit, & Firebase
         multiDexEnabled true
     }
 
@@ -73,7 +72,9 @@ flutter {
 }
 
 dependencies {
-    // PERBAIKAN: Dependency pendukung MultiDex & Desugaring
-    implementation 'com.android.support:multidex:1.0.3'
+    // PERBAIKAN: Menggunakan MultiDex versi AndroidX (bukan com.android.support usang)
+    implementation 'androidx.multidex:multidex:2.0.1'
+    
+    // Core Library Desugaring untuk fitur Java modern
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
 }

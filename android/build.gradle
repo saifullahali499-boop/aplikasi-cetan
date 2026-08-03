@@ -1,13 +1,16 @@
 buildscript {
-    // Samakan menjadi 2.0.0 di sini
-    ext.kotlin_version = '2.0.0'
+    // Diubah ke 1.9.22 untuk stabilitas maksimal dengan Flutter SDK terbaru
+    ext.kotlin_version = '1.9.22'
     
     repositories {
         google()
         mavenCentral()
     }
     dependencies {
+        // Plugin Kompiler Kotlin
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        
+        // Plugin Google Services wajib untuk Firebase
         classpath 'com.google.gms:google-services:4.4.2'
     }
 }
