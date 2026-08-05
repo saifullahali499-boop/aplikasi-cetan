@@ -21,6 +21,9 @@ class _ChatListScreenState extends State<ChatListScreen> with WidgetsBindingObse
   List<String> _lockedChats = [];
   String _appPin = "1234";
 
+final Set<String> _hiddenChats = {};
+  final Map<String, String> _chatCategories = {};
+
   @override
   void initState() {
     super.initState();
@@ -28,12 +31,30 @@ class _ChatListScreenState extends State<ChatListScreen> with WidgetsBindingObse
     _wifiService.checkAndUpdatetWifiStatus();
     _wifiService.listenToConnectivityChanges();
     _loadLockedChats();
+    _loadHiddenChats();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
+  }
+  // Fungsi untuk mengambil data chat yang disembunyikan dari memori HP
+  Future<void> _loadHiddenChats() async {
+    final prefs = await SharedPreferences.getInstance();
+    final List<String>? savedList = prefs.getStringList('hidden_chats_key');
+    if (savedList != null) {
+      setState(() {
+        _hiddenChats.clear();
+        _hiddenChats.addAll(savedList);
+      });
+    }
+  }
+
+  // Fungsi untuk menyimpan data setiap kali ada chat yang disembunyikan/ditampilkan
+  Future<void> _saveHiddenChats() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('hidden_chats_key', _hiddenChats.toList());
   }
 
   Future<void> _loadLockedChats() async {
@@ -368,6 +389,8 @@ class _ChatListScreenState extends State<ChatListScreen> with WidgetsBindingObse
   // Opsi Bottom Sheet saat Long Press pada Chat Item
   void _showChatOptionsSheet(BuildContext context, String roomName) {
     bool isLocked = _lockedChats.contains(roomName);
+    bool isHidden = _hiddenChats.contains(roomName);
+    String? currentCategory = _chatCategories[roomName];
 
     showModalBottomSheet(
       context: context,
@@ -420,8 +443,105 @@ class _ChatListScreenState extends State<ChatListScreen> with WidgetsBindingObse
                   }
                 },
               ),
+              const SizedBox(height: 4),
+
+              // FITUR TAMBAHKAN KATEGORI CHAT
+              ListTile(
+                leading: const Icon(Icons.label_outline_rounded, color: Color(0xFFD49A3B)),
+                title: const Text('Tambahkan Kategori Chat', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(
+                  currentCategory != null ? 'Kategori: $currentCategory' : 'Belum ada kategori',
+                  style: const TextStyle(fontSize: 11, color: Colors.black54),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showCategoryDialog(context, roomName);
+                },
+              ),
+              const SizedBox(height: 4),
+
+              // FITUR SEMBUNYIKAN / BATALKAN SEMBUNYI CHAT
+              ListTile(
+                leading: Icon(isHidden ? Icons.visibility_outlined : Icons.visibility_off_rounded, color: const Color(0xFFD49A3B)),
+                title: Text(isHidden ? 'Batalkan Sembunyikan' : 'Sembunyikan Chat', style: const TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  setState(() {
+                    if (isHidden) {
+                      _hiddenChats.remove(roomName);
+                    } else {
+                      _hiddenChats.add(roomName);
+                    }
+                  });
+
+                  _saveHiddenChats();
+                  
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      backgroundColor: const Color(0xFFD49A3B),
+                      content: Text(isHidden ? 'Obrolan dimunculkan kembali 👁️' : 'Obrolan berhasil disembunyikan 🙈'),
+                    ),
+                  );
+                },
+              ),
             ],
           ),
+        );
+      },
+    );
+  }
+  void _showCategoryDialog(BuildContext context, String roomName) {
+    final TextEditingController categoryController = TextEditingController(
+      text: _chatCategories[roomName] ?? '',
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Atur Kategori Chat', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          content: TextField(
+            controller: categoryController,
+            decoration: InputDecoration(
+              hintText: 'Contoh: Penting, Tugas, Keluarga',
+              filled: true,
+              fillColor: Colors.grey.shade100,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Batal', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFD49A3B),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              onPressed: () {
+                setState(() {
+                  if (categoryController.text.trim().isEmpty) {
+                    _chatCategories.remove(roomName);
+                  } else {
+                    _chatCategories[roomName] = categoryController.text.trim();
+                  }
+                });
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    backgroundColor: Color(0xFFD49A3B),
+                    content: Text('Kategori obrolan berhasil diperbarui 🏷️'),
+                  ),
+                );
+              },
+              child: const Text('Simpan', style: TextStyle(color: Colors.white)),
+            ),
+          ],
         );
       },
     );
@@ -552,6 +672,9 @@ class _ChatListScreenState extends State<ChatListScreen> with WidgetsBindingObse
                           itemBuilder: (context, index) {
                             final chat = filteredChatList[index];
                             final String roomName = chat['name'];
+                            if (_hiddenChats.contains(roomName)) {
+      return const SizedBox.shrink(); // Lewati dan jangan tampilkan
+    }
                             final bool isLocked = _lockedChats.contains(roomName);
 
                             return InkWell(

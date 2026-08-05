@@ -464,6 +464,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             },
                           ),
 
+                          // Menu Kelola Chat Tersembunyi
+ListTile(
+  leading: const Icon(Icons.visibility_off, color: Colors.grey),
+  title: const Text('Kelola Chat Tersembunyi'),
+  subtitle: const Text('Lihat atau tampilkan kembali chat yang disembunyikan'),
+  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+  onTap: () {
+    _showHiddenChatsInProfile(context);
+  },
+),
+
                           // Menu Tampilkan Status Jaringan (Switch)
                           SwitchListTile(
                             secondary: const Icon(Icons.wifi_outlined, color: Colors.black54),
@@ -532,4 +543,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
   }
+}
+void _showHiddenChatsInProfile(BuildContext context) async {
+  final prefs = await SharedPreferences.getInstance();
+  List<String> hiddenList = prefs.getStringList('hidden_chats_key') ?? [];
+
+  showDialog(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('Daftar Chat Tersembunyi'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: hiddenList.isEmpty
+                  ? const Text('Tidak ada chat yang disembunyikan.')
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: hiddenList.length,
+                      itemBuilder: (context, index) {
+                        final roomName = hiddenList[index];
+                        return ListTile(
+                          title: Text(roomName),
+                          trailing: ElevatedButton(
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                            onPressed: () async {
+                              setStateDialog(() {
+                                hiddenList.remove(roomName);
+                              });
+                              await prefs.setStringList('hidden_chats_key', hiddenList);
+                            },
+                            child: const Text('Tampilkan', style: TextStyle(color: Colors.white)),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Tutup'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
 }
