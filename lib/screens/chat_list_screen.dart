@@ -39,6 +39,116 @@ final Set<String> _hiddenChats = {};
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
+  // Fungsi simpan kategori chat
+  Future<void> _simpanKategoriKeFirestore(String roomName, String kategoriBaru) async {
+  try {
+    // 1. Cari semua dokumen pesan di koleksi 'chats' yang memiliki nama room yang sama
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection('chats')
+        .where('room', isEqualTo: roomName)
+        .get();
+
+    // 2. Jika tidak ada dokumen ditemukan, beri tahu
+    if (querySnapshot.docs.isEmpty) {
+      print("Tidak ada chat dengan room: $roomName");
+      return;
+    }
+
+    // 3. Update field 'categoryId' di setiap dokumen pesan tersebut
+    for (var doc in querySnapshot.docs) {
+      await doc.reference.update({
+        'categoryId': kategoriBaru,
+      });
+    }
+
+    // Tampilkan pesan sukses jika berhasil
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Kategori "$kategoriBaru" berhasil disimpan ke Firebase!')),
+    );
+  } catch (e) {
+    print("Gagal menyimpan kategori: $e");
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Gagal menyimpan kategori: $e')),
+    );
+  }
+}
+Future<void> _showCategoryDialog(BuildContext context, String roomName) async {
+  // 1. Controller untuk mengambil teks yang diketik pengguna
+  TextEditingController categoryController = TextEditingController();
+
+  await showDialog(
+    context: context,
+    builder: (context) {
+      return AlertDialog(
+        title: const Text('Atur Kategori Chat'),
+        content: TextField(
+          controller: categoryController,
+          decoration: const InputDecoration(
+            hintText: 'Masukkan kategori (cth: Keluarga)',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          // Tombol Batal
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          
+          // Tombol Simpan (yang kamu tanyakan posisinya di sini)
+          TextButton(
+            onPressed: () {
+              String kategoriBaru = categoryController.text.trim();
+              if (kategoriBaru.isNotEmpty) {
+                // Memanggil fungsi simpan ke Firestore yang sudah kamu buat sebelumnya
+                _simpanKategoriKeFirestore(roomName, kategoriBaru);
+                Navigator.pop(context); // Tutup dialog
+              }
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      );
+    },
+  );
+}
+  // 👇 TARUH FUNGSI _hapusKategori DI SINI (SEJAJAR DENGAN FUNGSI LAINNYA)
+  Future<void> _hapusKategori(String categoryName) async {
+    bool? confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hapus Kategori'),
+        content: Text('Yakin ingin menghapus kategori "$categoryName"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Batal'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Hapus', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('chats')
+          .where('categoryId', isEqualTo: categoryName)
+          .get();
+
+      for (var doc in querySnapshot.docs) {
+        await doc.reference.update({
+          'categoryId': FieldValue.delete(),
+        });
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Kategori "$categoryName" berhasil dihapus')),
+      );
+    }
+  }
   // Fungsi untuk mengambil data chat yang disembunyikan dari memori HP
   Future<void> _loadHiddenChats() async {
     final prefs = await SharedPreferences.getInstance();
@@ -445,21 +555,22 @@ final Set<String> _hiddenChats = {};
               ),
               const SizedBox(height: 4),
 
-              // FITUR TAMBAHKAN KATEGORI CHAT
-              ListTile(
-                leading: const Icon(Icons.label_outline_rounded, color: Color(0xFFD49A3B)),
-                title: const Text('Tambahkan Kategori Chat', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text(
-                  currentCategory != null ? 'Kategori: $currentCategory' : 'Belum ada kategori',
-                  style: const TextStyle(fontSize: 11, color: Colors.black54),
-                ),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showCategoryDialog(context, roomName);
-                },
-              ),
-              const SizedBox(height: 4),
-
+              // FITUR TAMBAHKAN KATEGORI CHAT (Hanya muncul jika bukan grup)
+if (!roomName.toLowerCase().contains('grup')) ...[
+  ListTile(
+    leading: const Icon(Icons.label_outline_rounded, color: Color(0xFFD49A3B)),
+    title: const Text('Tambahkan Kategori Chat', style: TextStyle(fontWeight: FontWeight.w600)),
+    subtitle: Text(
+      currentCategory != null ? 'Kategori: $currentCategory' : 'Belum ada kategori',
+      style: const TextStyle(fontSize: 11, color: Colors.black54),
+    ),
+    onTap: () {
+      Navigator.pop(context);
+      _showCategoryDialog(context, roomName);
+    },
+  ),
+  const SizedBox(height: 4),
+],
               // FITUR SEMBUNYIKAN / BATALKAN SEMBUNYI CHAT
               ListTile(
                 leading: Icon(isHidden ? Icons.visibility_outlined : Icons.visibility_off_rounded, color: const Color(0xFFD49A3B)),
@@ -490,62 +601,7 @@ final Set<String> _hiddenChats = {};
       },
     );
   }
-  void _showCategoryDialog(BuildContext context, String roomName) {
-    final TextEditingController categoryController = TextEditingController(
-      text: _chatCategories[roomName] ?? '',
-    );
 
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('Atur Kategori Chat', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          content: TextField(
-            controller: categoryController,
-            decoration: InputDecoration(
-              hintText: 'Contoh: Penting, Tugas, Keluarga',
-              filled: true,
-              fillColor: Colors.grey.shade100,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Batal', style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFD49A3B),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
-              onPressed: () {
-                setState(() {
-                  if (categoryController.text.trim().isEmpty) {
-                    _chatCategories.remove(roomName);
-                  } else {
-                    _chatCategories[roomName] = categoryController.text.trim();
-                  }
-                });
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    backgroundColor: Color(0xFFD49A3B),
-                    content: Text('Kategori obrolan berhasil diperbarui 🏷️'),
-                  ),
-                );
-              },
-              child: const Text('Simpan', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -620,6 +676,7 @@ final Set<String> _hiddenChats = {};
                   "time": timeString,
                   "isGroup": roomName.toLowerCase().contains('grup'),
                   "isUnread": (data['isRead'] == false || data['isRead'] == null) && data['senderUid'] != currentUser?.uid,
+                  "categoryId": data['categoryId'], // Menyimpan informasi kategori di map chat
                 };
               } else {
                 if ((data['isRead'] == false || data['isRead'] == null) && data['senderUid'] != currentUser?.uid) {
@@ -638,6 +695,20 @@ final Set<String> _hiddenChats = {};
             filteredChatList = masterChatList.where((chat) => chat['isUnread'] == true).toList();
           } else if (_selectedTabFilter == 2) {
             filteredChatList = masterChatList.where((chat) => chat['isGroup'] == true).toList();
+          } else {
+            // 1. Ambil daftar kategori unik langsung dari masterChatList
+            List<String> categoryList = masterChatList
+                .map((chat) => chat['categoryId']?.toString())
+                .where((id) => id != null && id.isNotEmpty)
+                .cast<String>()
+                .toSet()
+                .toList();
+            
+            // 2. Ambil nama kategori berdasarkan indeks tab (_selectedTabFilter - 3)
+            String selectedCategoryName = categoryList[_selectedTabFilter - 3]; 
+            
+            // 3. Filter chat berdasarkan categoryId yang cocok
+            filteredChatList = masterChatList.where((chat) => chat['categoryId'] == selectedCategoryName).toList();
           }
 
           int unreadCount = masterChatList.where((chat) => chat['isUnread'] == true).length;
@@ -652,9 +723,38 @@ final Set<String> _hiddenChats = {};
                   scrollDirection: Axis.horizontal,
                   child: Row(
                     children: [
+                      // 1. Tiga tombol statis utama (TIDAK BISA DIHAPUS)
                       _buildSketchTabButton("SEMUA", indexTarget: 0),
                       _buildSketchTabButton("BELUM DIBACA ($unreadCount)", indexTarget: 1),
                       _buildSketchTabButton("GRUP", indexTarget: 2),
+
+                      // 2. Tombol kategori dinamis (Diambil dari snapshot dokumen Firestore langsung)
+                      ...(() {
+                        final Set<String> customCategories = {};
+                        if (snapshot.hasData) {
+                          for (var doc in snapshot.data!.docs) {
+                            final data = doc.data() as Map<String, dynamic>;
+                            if (data['categoryId'] != null && data['categoryId'].toString().isNotEmpty) {
+                              customCategories.add(data['categoryId'].toString());
+                            }
+                          }
+                        }
+
+                        int currentIndex = 3;
+                        return customCategories.map((catName) {
+                          final int target = currentIndex++;
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 8.0),
+                            child: GestureDetector(
+                              onLongPress: () => _hapusKategori(catName),
+                              child: Tooltip(
+                                message: "Tekan lama untuk menghapus kategori ini",
+                                child: _buildSketchTabButton(catName, indexTarget: target),
+                              ),
+                            ),
+                          );
+                        }).toList();
+                      }()),
                     ],
                   ),
                 ),
