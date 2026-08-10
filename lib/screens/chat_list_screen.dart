@@ -133,6 +133,9 @@ Future<void> _showCategoryDialog(BuildContext context, String roomName) async {
     );
 
     if (confirm == true) {
+      setState(() {
+        _selectedTabFilter = 0; // 🔴 Tambahkan di sini
+      });
       final querySnapshot = await FirebaseFirestore.instance
           .collection('chats')
           .where('categoryId', isEqualTo: categoryName)
@@ -496,111 +499,151 @@ Future<void> _showCategoryDialog(BuildContext context, String roomName) async {
     );
   }
 
-  // Opsi Bottom Sheet saat Long Press pada Chat Item
-  void _showChatOptionsSheet(BuildContext context, String roomName) {
-    bool isLocked = _lockedChats.contains(roomName);
-    bool isHidden = _hiddenChats.contains(roomName);
-    String? currentCategory = _chatCategories[roomName];
+ // Opsi Bottom Sheet saat Long Press pada Chat Item
+void _showChatOptionsSheet(BuildContext context, Map<String, dynamic> chatData) {
+  final String roomName = chatData['name'] ?? '';
+  final String docId = chatData["id"] ?? "";
+  final bool currentFavorite = chatData["isFavorite"] ?? false;
 
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: const EdgeInsets.all(20.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(roomName.toUpperCase(), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF2C2C2C))),
-              const SizedBox(height: 10),
-              Divider(color: Colors.grey.shade300),
-              
-              // FITUR LIHAT CHAT: Hanya muncul jika chat TIDAK terkunci (!isLocked)
-              if (!isLocked) ...[
-                ListTile(
-                  leading: const Icon(Icons.visibility_off_outlined, color: Color(0xFFD49A3B)),
-                  title: const Text('Lihat Chat (Mode Baca Aman)', style: TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: const Text('Baca tanpa ketahuan / tanpa centang biru', style: TextStyle(fontSize: 11, color: Colors.black54)),
-                  onTap: () {
-                    Navigator.pop(context);
-                    _showIncognitoPeekModal(context, roomName);
-                  },
-                ),
-                const SizedBox(height: 4),
-              ],
-              
-              // FITUR KUNCI / BUKA KUNCI OBROLAN
+  bool isLocked = _lockedChats.contains(roomName);
+  bool isHidden = _hiddenChats.contains(roomName);
+  String? currentCategory = _chatCategories[roomName];
+
+  showModalBottomSheet(
+    context: context,
+    backgroundColor: Colors.white,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (context) {
+      return Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header Nama Ruangan
+            Text(
+              roomName.toUpperCase(), 
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF2C2C2C))
+            ),
+            const SizedBox(height: 10),
+            Divider(color: Colors.grey.shade300),
+
+            // 🌟 MENU FAVORIT (Langsung pakai variabel parameter, tanpa error filteredChatList)
+            ListTile(
+              leading: const Icon(Icons.star, color: Colors.amber),
+              title: Text(
+                currentFavorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              onTap: () async {
+                Navigator.pop(context);
+
+                if (docId.isNotEmpty) {
+                  await FirebaseFirestore.instance
+                      .collection("chats")
+                      .doc(docId)
+                      .update({
+                    "isFavorite": !currentFavorite,
+                  });
+
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        currentFavorite 
+                            ? "Berhasil dihapus dari Favorit" 
+                            : "Berhasil ditambahkan ke Favorit",
+                      ),
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 4),
+
+            // FITUR LIHAT CHAT: Hanya muncul jika chat TIDAK terkunci (!isLocked)
+            if (!isLocked) ...[
               ListTile(
-                leading: Icon(isLocked ? Icons.lock_open_rounded : Icons.lock_outline_rounded, color: const Color(0xFFD49A3B)),
-                title: Text(isLocked ? 'Buka Kunci Obrolan' : 'Kunci Obrolan Ini', style: const TextStyle(fontWeight: FontWeight.w600)),
+                leading: const Icon(Icons.visibility_off_outlined, color: Color(0xFFD49A3B)),
+                title: const Text('Lihat Chat (Mode Baca Aman)', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Baca tanpa ketahuan / tanpa centang biru', style: TextStyle(fontSize: 11, color: Colors.black54)),
                 onTap: () {
                   Navigator.pop(context);
-                  if (isLocked) {
-                    // Wajib masukkan PIN jika ingin membuka kunci
-                    _showUnlockPinDialog(context, roomName);
-                  } else {
-                    // Langsung kunci jika sebelumnya belum terkunci
-                    _toggleLockChat(roomName);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        backgroundColor: Color(0xFFD49A3B),
-                        content: Text('Obrolan berhasil dikunci 🔒'),
-                      ),
-                    );
-                  }
+                  _showIncognitoPeekModal(context, roomName);
                 },
               ),
               const SizedBox(height: 4),
+            ],
 
-              // FITUR TAMBAHKAN KATEGORI CHAT (Hanya muncul jika bukan grup)
-if (!roomName.toLowerCase().contains('grup')) ...[
-  ListTile(
-    leading: const Icon(Icons.label_outline_rounded, color: Color(0xFFD49A3B)),
-    title: const Text('Tambahkan Kategori Chat', style: TextStyle(fontWeight: FontWeight.w600)),
-    subtitle: Text(
-      currentCategory != null ? 'Kategori: $currentCategory' : 'Belum ada kategori',
-      style: const TextStyle(fontSize: 11, color: Colors.black54),
-    ),
-    onTap: () {
-      Navigator.pop(context);
-      _showCategoryDialog(context, roomName);
-    },
-  ),
-  const SizedBox(height: 4),
-],
-              // FITUR SEMBUNYIKAN / BATALKAN SEMBUNYI CHAT
-              ListTile(
-                leading: Icon(isHidden ? Icons.visibility_outlined : Icons.visibility_off_rounded, color: const Color(0xFFD49A3B)),
-                title: Text(isHidden ? 'Batalkan Sembunyikan' : 'Sembunyikan Chat', style: const TextStyle(fontWeight: FontWeight.w600)),
-                onTap: () {
-                  Navigator.pop(context);
-                  setState(() {
-                    if (isHidden) {
-                      _hiddenChats.remove(roomName);
-                    } else {
-                      _hiddenChats.add(roomName);
-                    }
-                  });
-
-                  _saveHiddenChats();
-                  
+            // FITUR KUNCI / BUKA KUNCI OBROLAN
+            ListTile(
+              leading: Icon(isLocked ? Icons.lock_open_rounded : Icons.lock_outline_rounded, color: const Color(0xFFD49A3B)),
+              title: Text(isLocked ? 'Buka Kunci Obrolan' : 'Kunci Obrolan Ini', style: const TextStyle(fontWeight: FontWeight.w600)),
+              onTap: () {
+                Navigator.pop(context);
+                if (isLocked) {
+                  _showUnlockPinDialog(context, roomName);
+                } else {
+                  _toggleLockChat(roomName);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: const Color(0xFFD49A3B),
-                      content: Text(isHidden ? 'Obrolan dimunculkan kembali 👁️' : 'Obrolan berhasil disembunyikan 🙈'),
+                    const SnackBar(
+                      backgroundColor: Color(0xFFD49A3B),
+                      content: Text('Obrolan berhasil dikunci 🔒'),
                     ),
                   );
+                }
+              },
+            ),
+            const SizedBox(height: 4),
+
+            // FITUR TAMBAHKAN KATEGORI CHAT (Hanya muncul jika bukan grup)
+            if (!roomName.toLowerCase().contains('grup')) ...[
+              ListTile(
+                leading: const Icon(Icons.label_outline_rounded, color: Color(0xFFD49A3B)),
+                title: const Text('Tambahkan Kategori Chat', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(
+                  currentCategory != null ? 'Kategori: $currentCategory' : 'Belum ada kategori',
+                  style: const TextStyle(fontSize: 11, color: Colors.black54),
+                ),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showCategoryDialog(context, roomName);
                 },
               ),
+              const SizedBox(height: 4),
             ],
-          ),
-        );
-      },
-    );
-  }
+
+            // FITUR SEMBUNYIKAN / BATALKAN SEMBUNYI CHAT
+            ListTile(
+              leading: Icon(isHidden ? Icons.visibility_outlined : Icons.visibility_off_rounded, color: const Color(0xFFD49A3B)),
+              title: Text(isHidden ? 'Batalkan Sembunyikan' : 'Sembunyikan Chat', style: const TextStyle(fontWeight: FontWeight.w600)),
+              onTap: () {
+                Navigator.pop(context);
+                setState(() {
+                  if (isHidden) {
+                    _hiddenChats.remove(roomName);
+                  } else {
+                    _hiddenChats.add(roomName);
+                  }
+                });
+
+                _saveHiddenChats();
+              
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    backgroundColor: const Color(0xFFD49A3B),
+                    content: Text(isHidden ? 'Obrolan dimunculkan kembali 👁️‍🗨️' : 'Obrolan berhasil disembunyikan 🙈'),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
 
 
   @override
@@ -671,12 +714,14 @@ if (!roomName.toLowerCase().contains('grup')) ...[
                 }
 
                 roomsMap[roomName] = {
+                  "id": doc.id, // 🔴 TAMBAHKAN BARIS INI DI SINI
                   "name": roomName,
                   "message": data['type'] == 'image' ? '📸 Gambar' : (data['type'] == 'file' ? '📁 File' : (data['text'] ?? '')),
                   "time": timeString,
                   "isGroup": roomName.toLowerCase().contains('grup'),
                   "isUnread": (data['isRead'] == false || data['isRead'] == null) && data['senderUid'] != currentUser?.uid,
                   "categoryId": data['categoryId'], // Menyimpan informasi kategori di map chat
+                  "isFavorite": data['isFavorite'] ?? false,
                 };
               } else {
                 if ((data['isRead'] == false || data['isRead'] == null) && data['senderUid'] != currentUser?.uid) {
@@ -695,21 +740,28 @@ if (!roomName.toLowerCase().contains('grup')) ...[
             filteredChatList = masterChatList.where((chat) => chat['isUnread'] == true).toList();
           } else if (_selectedTabFilter == 2) {
             filteredChatList = masterChatList.where((chat) => chat['isGroup'] == true).toList();
+          } else if (_selectedTabFilter == 3) {
+  // 🔴 FILTER UNTUK TAB FAVORIT (HARDCODE)
+  // Sesuaikan 'isFavorite' dengan nama field di database/map chat kamu
+  filteredChatList = masterChatList.where((chat) => chat['isFavorite'] == true).toList();
           } else {
-            // 1. Ambil daftar kategori unik langsung dari masterChatList
-            List<String> categoryList = masterChatList
-                .map((chat) => chat['categoryId']?.toString())
-                .where((id) => id != null && id.isNotEmpty)
-                .cast<String>()
-                .toSet()
-                .toList();
-            
-            // 2. Ambil nama kategori berdasarkan indeks tab (_selectedTabFilter - 3)
-            String selectedCategoryName = categoryList[_selectedTabFilter - 3]; 
-            
-            // 3. Filter chat berdasarkan categoryId yang cocok
-            filteredChatList = masterChatList.where((chat) => chat['categoryId'] == selectedCategoryName).toList();
-          }
+  // Ambil daftar kategori unik langsung dari masterChatList
+  List<String> categoryList = masterChatList
+      .map((chat) => chat['categoryId']?.toString())
+      .where((id) => id != null && id.isNotEmpty)
+      .cast<String>()
+      .toSet()
+      .toList();
+  
+  // 🔴 PENGAMAN: Jika tab yang dipilih melebihi jumlah kategori yang ada, kembalikan ke tab 0 (SEMUA)
+  if (_selectedTabFilter - 4 >= categoryList.length) {
+    _selectedTabFilter = 0;
+    filteredChatList = masterChatList;
+  } else {
+    String selectedCategoryName = categoryList[_selectedTabFilter - 4]; 
+    filteredChatList = masterChatList.where((chat) => chat['categoryId'] == selectedCategoryName).toList();
+  }
+}
 
           int unreadCount = masterChatList.where((chat) => chat['isUnread'] == true).length;
 
@@ -727,6 +779,8 @@ if (!roomName.toLowerCase().contains('grup')) ...[
                       _buildSketchTabButton("SEMUA", indexTarget: 0),
                       _buildSketchTabButton("BELUM DIBACA ($unreadCount)", indexTarget: 1),
                       _buildSketchTabButton("GRUP", indexTarget: 2),
+                      // 🔴 TAMBAHKAN TAB FAVORIT (HARDCODE) DI SINI (Index 3)
+_buildSketchTabButton("FAVORIT", indexTarget: 3),
 
                       // 2. Tombol kategori dinamis (Diambil dari snapshot dokumen Firestore langsung)
                       ...(() {
@@ -740,7 +794,7 @@ if (!roomName.toLowerCase().contains('grup')) ...[
                           }
                         }
 
-                        int currentIndex = 3;
+                        int currentIndex = 4;
                         return customCategories.map((catName) {
                           final int target = currentIndex++;
                           return Padding(
@@ -791,7 +845,7 @@ if (!roomName.toLowerCase().contains('grup')) ...[
                                 }
                               },
                               onLongPress: () {
-                                _showChatOptionsSheet(context, roomName);
+                                _showChatOptionsSheet(context, chat);
                               },
                               child: Column(
                                 children: [
