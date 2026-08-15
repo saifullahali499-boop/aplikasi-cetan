@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'select_contact_screen.dart';
 import 'chat_room_screen.dart';
 import 'group_chat_screen.dart';
 import '../services/wifi_service.dart';
@@ -213,7 +214,8 @@ Future<void> _showCategoryDialog(BuildContext context, String roomName) async {
   }
 
   // Dialog untuk memasukkan PIN saat membuka chat yang dikunci
-  void _showPinDialog(BuildContext context, String roomName, bool isGroup) {
+  void _showPinDialog(BuildContext context, String roomName, bool isGroup
+  , String? receiverUid) {
     final TextEditingController pinController = TextEditingController();
 
     showDialog(
@@ -273,7 +275,8 @@ Future<void> _showCategoryDialog(BuildContext context, String roomName) async {
                   if (isGroup) {
                     Navigator.push(context, MaterialPageRoute(builder: (context) => GroupChatScreen(groupName: roomName)));
                   } else {
-                    Navigator.push(context, MaterialPageRoute(builder: (context) => ChatRoomScreen(name: roomName)));
+                    Navigator.push(context, MaterialPageRoute(builder: (context) => ChatRoomScreen(name: roomName,chatId: roomName, 
+                    receiverUid: receiverUid,)));
                   }
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
@@ -511,7 +514,7 @@ void _showChatOptionsSheet(BuildContext context, Map<String, dynamic> chatData) 
 
   showModalBottomSheet(
     context: context,
-    backgroundColor: Colors.white,
+    backgroundColor: const Color(0xFF2B2B2B),
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
@@ -524,17 +527,18 @@ void _showChatOptionsSheet(BuildContext context, Map<String, dynamic> chatData) 
             // Header Nama Ruangan
             Text(
               roomName.toUpperCase(), 
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF2C2C2C))
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white,)
             ),
             const SizedBox(height: 10),
-            Divider(color: Colors.grey.shade300),
+            Divider(color: Colors.white12),
 
             // 🌟 MENU FAVORIT (Langsung pakai variabel parameter, tanpa error filteredChatList)
             ListTile(
               leading: const Icon(Icons.star, color: Colors.amber),
               title: Text(
                 currentFavorite ? 'Hapus dari Favorit' : 'Tambah ke Favorit',
-                style: const TextStyle(fontWeight: FontWeight.w600),
+                style: const TextStyle(fontWeight: FontWeight.w600,
+                color: Colors.white,),
               ),
               onTap: () async {
                 Navigator.pop(context);
@@ -566,8 +570,8 @@ void _showChatOptionsSheet(BuildContext context, Map<String, dynamic> chatData) 
             if (!isLocked) ...[
               ListTile(
                 leading: const Icon(Icons.visibility_off_outlined, color: Color(0xFFD49A3B)),
-                title: const Text('Lihat Chat (Mode Baca Aman)', style: TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: const Text('Baca tanpa ketahuan / tanpa centang biru', style: TextStyle(fontSize: 11, color: Colors.black54)),
+                title: const Text('Lihat Chat (Mode Baca Aman)', style: TextStyle(fontWeight: FontWeight.w600,color: Colors.white,),),
+                subtitle: const Text('Baca tanpa ketahuan / tanpa centang biru', style: TextStyle(fontSize: 11, color: Colors.white70)),
                 onTap: () {
                   Navigator.pop(context);
                   _showIncognitoPeekModal(context, roomName);
@@ -579,7 +583,10 @@ void _showChatOptionsSheet(BuildContext context, Map<String, dynamic> chatData) 
             // FITUR KUNCI / BUKA KUNCI OBROLAN
             ListTile(
               leading: Icon(isLocked ? Icons.lock_open_rounded : Icons.lock_outline_rounded, color: const Color(0xFFD49A3B)),
-              title: Text(isLocked ? 'Buka Kunci Obrolan' : 'Kunci Obrolan Ini', style: const TextStyle(fontWeight: FontWeight.w600)),
+              title: Text(isLocked ? 'Buka Kunci Obrolan' : 'Kunci Obrolan Ini', style: const TextStyle(fontWeight: FontWeight.w600,
+              color: Colors.white,
+              ),
+            ),
               onTap: () {
                 Navigator.pop(context);
                 if (isLocked) {
@@ -601,10 +608,13 @@ void _showChatOptionsSheet(BuildContext context, Map<String, dynamic> chatData) 
             if (!roomName.toLowerCase().contains('grup')) ...[
               ListTile(
                 leading: const Icon(Icons.label_outline_rounded, color: Color(0xFFD49A3B)),
-                title: const Text('Tambahkan Kategori Chat', style: TextStyle(fontWeight: FontWeight.w600)),
+                title: const Text('Tambahkan Kategori Chat', style: TextStyle(fontWeight: FontWeight.w600,
+                color: Colors.white,
+                ),
+              ),
                 subtitle: Text(
                   currentCategory != null ? 'Kategori: $currentCategory' : 'Belum ada kategori',
-                  style: const TextStyle(fontSize: 11, color: Colors.black54),
+                  style: const TextStyle(fontSize: 11, color: Colors.white70),
                 ),
                 onTap: () {
                   Navigator.pop(context);
@@ -617,7 +627,10 @@ void _showChatOptionsSheet(BuildContext context, Map<String, dynamic> chatData) 
             // FITUR SEMBUNYIKAN / BATALKAN SEMBUNYI CHAT
             ListTile(
               leading: Icon(isHidden ? Icons.visibility_outlined : Icons.visibility_off_rounded, color: const Color(0xFFD49A3B)),
-              title: Text(isHidden ? 'Batalkan Sembunyikan' : 'Sembunyikan Chat', style: const TextStyle(fontWeight: FontWeight.w600)),
+              title: Text(isHidden ? 'Batalkan Sembunyikan' : 'Sembunyikan Chat', style: const TextStyle(fontWeight: FontWeight.w600,
+              color: Colors.white,
+              ),
+            ),
               onTap: () {
                 Navigator.pop(context);
                 setState(() {
@@ -681,11 +694,14 @@ void _showChatOptionsSheet(BuildContext context, Map<String, dynamic> chatData) 
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.edit_note_outlined, color: Colors.white70, size: 28),
-            onPressed: () {
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const ContactListScreen()));
-            },
-          ),
+  icon: const Icon(Icons.edit_note_outlined, color: Colors.white70, size: 28),
+  onPressed: () {
+    Navigator.push(
+      context, 
+      MaterialPageRoute(builder: (context) => const SelectContactScreen()),
+    );
+  },
+),
           const SizedBox(width: 8),
         ],
       ),
@@ -834,13 +850,14 @@ _buildSketchTabButton("FAVORIT", indexTarget: 3),
                             return InkWell(
                               onTap: () {
                                 if (isLocked) {
-                                  _showPinDialog(context, roomName, chat['isGroup']);
+                                  _showPinDialog(context, roomName, chat['isGroup'], chat['receiverUid']);
                                 } else {
                                   _markChatAsRead(roomName);
                                   if (chat['isGroup'] == true) {
                                     Navigator.push(context, MaterialPageRoute(builder: (context) => GroupChatScreen(groupName: roomName)));
                                   } else {
-                                    Navigator.push(context, MaterialPageRoute(builder: (context) => ChatRoomScreen(name: roomName)));
+                                    Navigator.push(context, MaterialPageRoute(builder: (context) => ChatRoomScreen(name: roomName,chatId: roomName,receiverUid: chat['receiverUid'],
+                                    )));
                                   }
                                 }
                               },
@@ -974,191 +991,6 @@ _buildSketchTabButton("FAVORIT", indexTarget: 3),
             fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// === SCREEN PILIH KONTAK BARU ===
-class ContactListScreen extends StatefulWidget {
-  const ContactListScreen({super.key});
-
-  @override
-  State<ContactListScreen> createState() => _ContactListViewState();
-}
-
-class _ContactListViewState extends State<ContactListScreen> {
-  final List<Map<String, String>> _contacts = [
-    {"name": "Anak Lanang", "status": "Sedang belajar Flutter 🚀"},
-    {"name": "Bapak Ketua RT", "status": "Ada rapat warga nanti malam"},
-    {"name": "ISTRIKU ❤️", "status": "Jangan lupa titipan belanjaan ya"},
-    {"name": "Mas Agus (Montir)", "status": "Bengkel buka sampai jam 5 sore"},
-    {"name": "Pak Eko Guru", "status": "Sedang piket di sekolah... Harap tenang"},
-    {"name": "Sobat Ngopi", "status": "Ngopi yuk! ☕"},
-  ];
-
-  void _showInputDialog({required String title, required String hint, required bool isGroup}) {
-    final TextEditingController inputController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          backgroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            side: const BorderSide(color: Color(0xFF2C2C2C), width: 2),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: Text(title, style: const TextStyle(color: Color(0xFF2C2C2C), fontSize: 18, fontWeight: FontWeight.bold)),
-          content: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF6F6F4),
-              border: Border.all(color: const Color(0xFF2C2C2C).withOpacity(0.2)),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: TextField(
-              controller: inputController,
-              style: const TextStyle(color: Color(0xFF2C2C2C)),
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: const TextStyle(color: Colors.black38),
-                border: InputBorder.none,
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('BATAL', style: TextStyle(color: Colors.black45, fontWeight: FontWeight.bold)),
-            ),
-            TextButton(
-              onPressed: () {
-                final text = inputController.text.trim();
-                if (text.isNotEmpty) {
-                  setState(() {
-                    _contacts.insert(0, {
-                      "name": isGroup ? "Grup $text" : text,
-                      "status": isGroup ? "Baru saja dibuat oleh Anda" : "Halo! Salat menggunakan CETAN.",
-                    });
-                  });
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      backgroundColor: const Color(0xFFD49A3B),
-                      content: Text('${isGroup ? 'Grup' : 'Kontak'} "$text" berhasil ditambahkan!'),
-                    ),
-                  );
-                }
-              },
-              child: const Text('SIMPAN', style: TextStyle(color: Color(0xFFD49A3B), fontWeight: FontWeight.bold)),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: RadialGradient(
-          center: Alignment(0.0, -0.2),
-          radius: 1.3,
-          colors: [Color(0xFFFDFDFD), Color(0xFFF6F6F4), Color(0xFFEAEAEA)]
-        ),
-      ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          leading: IconButton(icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Color(0xFF2C2C2C)), onPressed: () => Navigator.pop(context)),
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Pilih Kontak Baru', style: TextStyle(color: Color(0xFF2C2C2C), fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 2),
-              Text('${_contacts.length} Kontak Tersedia', style: TextStyle(color: Color(0xFF2C2C2C).withOpacity(0.5), fontSize: 12)),
-            ],
-          ),
-        ),
-        body: Column(
-          children: [
-            Divider(color: const Color(0xFF2C2C2C).withOpacity(0.12), height: 1),
-            ListTile(
-              leading: Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFF2C2C2C)), color: Colors.white),
-                child: const Icon(Icons.group_add_outlined, color: Color(0xFF2C2C2C)),
-              ),
-              title: const Text('Buat Kelompok Baru (Grup)', style: TextStyle(color: Color(0xFF2C2C2C), fontWeight: FontWeight.bold)),
-              onTap: () => _showInputDialog(
-                title: 'Tulis Nama Grup Baru',
-                hint: 'Misal: Tim Piket Jumat, Squad Kopi...',
-                isGroup: true,
-              ),
-            ),
-            ListTile(
-              leading: Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFF2C2C2C)), color: Colors.white),
-                child: const Icon(Icons.person_add_alt_1_outlined, color: Color(0xFF2C2C2C)),
-              ),
-              title: const Text('Tambah Kontak Kapur', style: TextStyle(color: Color(0xFF2C2C2C), fontWeight: FontWeight.bold)),
-              onTap: () => _showInputDialog(
-                title: 'Tambah Nama Kontak',
-                hint: 'Tulis nama teman...',
-                isGroup: false,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text('SEMUA KONTAK', style: TextStyle(color: const Color(0xFF2C2C2C).withOpacity(0.5), fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.0)),
-              ),
-            ),
-            Expanded(
-              child: ListView.builder(
-                itemCount: _contacts.length,
-                itemBuilder: (context, index) {
-                  final contact = _contacts[index];
-                  return Column(
-                    children: [
-                      ListTile(
-                        leading: Container(
-                          width: 42, height: 42,
-                          decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: const Color(0xFF2C2C2C)), color: Colors.white),
-                          child: Icon(contact['name']!.contains('Grup') ? Icons.group_outlined : Icons.person_outline, color: const Color(0xFF2C2C2C)),
-                        ),
-                        title: Text(contact['name']!, style: const TextStyle(color: Color(0xFF2C2C2C), fontWeight: FontWeight.w600)),
-                        subtitle: Text(contact['status']!, style: const TextStyle(color: Colors.black54, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        onTap: () {
-                          Navigator.pop(context);
-                          if (contact['name']!.contains('Grup')) {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => GroupChatScreen(groupName: contact['name']!))
-                            );
-                          } else {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => ChatRoomScreen(name: contact['name']!))
-                            );
-                          }
-                        },
-                      ),
-                      Padding(padding: const EdgeInsets.only(left: 72.0), child: Divider(color: const Color(0xFF2C2C2C).withOpacity(0.08), height: 1)),
-                    ],
-                  );
-                },
-              ),
-            ),
-          ],
         ),
       ),
     );

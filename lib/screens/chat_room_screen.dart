@@ -16,11 +16,19 @@ import 'package:audioplayers/audioplayers.dart'; // Library Putar suara
 import 'package:http/http.dart' as http; // Pendukung pembaca audio di Web
 
 class ChatRoomScreen extends StatefulWidget {
- final String name;
- const ChatRoomScreen({super.key, required this.name});
+  final String name;
+  final String chatId;       // Tambahkan ini
+  final String? receiverUid; // Tambahkan ini
 
- @override
- State<ChatRoomScreen> createState() => _ChatRoomScreenState();
+  const ChatRoomScreen({
+    super.key, 
+    required this.name,
+    required this.chatId,       // Tambahkan ini
+    this.receiverUid,           // Tambahkan ini
+  });
+
+  @override
+  State<ChatRoomScreen> createState() => _ChatRoomScreenState();
 }
 
 class _ChatRoomScreenState extends State<ChatRoomScreen> {
@@ -579,7 +587,8 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
       color: const Color(0xFFF4F5F7),
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        endDrawer: ProfileEndDrawer(name: widget.name, chatId: widget.name),
+        endDrawer: ProfileEndDrawer(name: widget.name, chatId: widget.chatId,
+        receiverUid: widget.receiverUid,),
         appBar: AppBar(
         backgroundColor: const Color(0xFF2D2B2A),
         elevation: 2,
@@ -622,54 +631,52 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                             ),
                           ),
                           
-                          // --- STREAM BUILDER DENGAN CEK PRIVASI (SHOW/HIDE STATUS) ---
-                          StreamBuilder<QuerySnapshot>(
-                            stream: _firestore
-                                .collection('users')
-                                .snapshots(),
-                            builder: (context, snapshot) {
-                              String displayStatus = "Mobile Data";
-                              bool showStatus = true; // Default aktif
+                          // --- STREAM BUILDER DENGAN CEK PRIVASI & TARGET KONTROL YANG TEPAT ---
+StreamBuilder<DocumentSnapshot>(
+  stream: widget.receiverUid != null && widget.receiverUid!.isNotEmpty
+      ? _firestore.collection('users').doc(widget.receiverUid).snapshots()
+      : const Stream.empty(), // Mencegah error jika UID masih kosong
+  builder: (context, snapshot) {
+    String displayStatus = "Mobile Data";
+    bool showStatus = true; // Default aktif
 
-                              if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-  // Ambil dokumen pertama sebagai sampel/default
-  var firstDoc = snapshot.data!.docs.first;
-  var data = firstDoc.data() as Map<String, dynamic>?;
+    if (snapshot.hasData && snapshot.data!.exists) {
+      var data = snapshot.data!.data() as Map<String, dynamic>?;
 
-  if (data != null) {
-    showStatus = data['showStatus'] ?? true;
-    displayStatus = data['status'] ?? 'Mobile Data';
-  }
-}
+      if (data != null) {
+        showStatus = data['showStatus'] ?? true;
+        displayStatus = data['status'] ?? 'Mobile Data';
+      }
+    }
 
-                              // JIKA PENGGUNA MEMATIKAN STATUS, SEMBUNYIKAN TAMPILANNYA
-                              if (!showStatus) {
-                                return const SizedBox.shrink(); // Teks & titik hijau hilang bersih
-                              }
+    // JIKA PENGGUNA MEMATIKAN STATUS, SEMBUNYIKAN TAMPILANNYA
+    if (!showStatus) {
+      return const SizedBox.shrink(); // Teks & titik hijau hilang bersih
+    }
 
-                              return Row(
-                                children: [
-                                  Container(
-                                    width: 7,
-                                    height: 7,
-                                    decoration: const BoxDecoration(
-                                      color: Colors.greenAccent,
-                                      shape: BoxShape.circle,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Expanded(
-                                    child: Text(
-                                      displayStatus,
-                                      style: const TextStyle(color: Colors.white60, fontSize: 11),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            },
-                          ),
+    return Row(
+      children: [
+        Container(
+          width: 7,
+          height: 7,
+          decoration: const BoxDecoration(
+            color: Colors.greenAccent,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 5),
+        Expanded(
+          child: Text(
+            displayStatus,
+            style: const TextStyle(color: Colors.white60, fontSize: 11),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  },
+),
                           // -----------------------------------------------------------
                         ],
                       ),
