@@ -13,7 +13,8 @@ class SelectContactScreen extends StatefulWidget {
 class _SelectContactScreenState extends State<SelectContactScreen> {
   // Fungsi dialog untuk input grup atau kontak baru
   void _showInputDialog({required String title, required String hint, required bool isGroup}) {
-    final TextEditingController inputController = TextEditingController();
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController phoneController = TextEditingController();
 
     showDialog(
       context: context,
@@ -25,22 +26,55 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
             borderRadius: BorderRadius.circular(16),
           ),
           title: Text(title, style: const TextStyle(color: Color(0xFF2C2C2C), fontSize: 18, fontWeight: FontWeight.bold)),
-          content: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF6F6F4),
-              border: Border.all(color: const Color(0xFF2C2C2C).withOpacity(0.2)),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: TextField(
-              controller: inputController,
-              style: const TextStyle(color: Color(0xFF2C2C2C)),
-              autofocus: true,
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: const TextStyle(color: Colors.black38),
-                border: InputBorder.none,
-              ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Input Nama
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF6F6F4),
+                    border: Border.all(color: const Color(0xFF2C2C2C).withOpacity(0.2)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: TextField(
+                    controller: nameController,
+                    style: const TextStyle(color: Color(0xFF2C2C2C)),
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      labelText: 'Nama',
+                      hintText: hint,
+                      hintStyle: const TextStyle(color: Colors.black38),
+                      border: InputBorder.none,
+                    ),
+                  ),
+                ),
+                
+                // Jika bukan grup, tampilkan input nomor telepon
+                if (!isGroup) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF6F6F4),
+                      border: Border.all(color: const Color(0xFF2C2C2C).withOpacity(0.2)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: TextField(
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      style: const TextStyle(color: Color(0xFF2C2C2C)),
+                      decoration: const InputDecoration(
+                        labelText: 'Nomor Telepon',
+                        hintText: 'Contoh: 08123456789',
+                        hintStyle: TextStyle(color: Colors.black38),
+                        border: InputBorder.none,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           actions: [
@@ -49,16 +83,61 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
               child: const Text('BATAL', style: TextStyle(color: Colors.black45, fontWeight: FontWeight.bold)),
             ),
             TextButton(
-              onPressed: () {
-                final text = inputController.text.trim();
-                if (text.isNotEmpty) {
+              onPressed: () async {
+                final name = nameController.text.trim();
+                final phone = phoneController.text.trim();
+
+                if (isGroup && name.isNotEmpty) {
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                       backgroundColor: const Color(0xFFD49A3B),
-                      content: Text('${isGroup ? 'Grup' : 'Kontak'} "$text" berhasil ditambahkan!'),
+                      content: Text('Grup "$name" berhasil dibuat!'),
                     ),
                   );
+                } else if (!isGroup && name.isNotEmpty && phone.isNotEmpty) {
+                  // Proses pencarian nomor ke Firebase 'users'
+                  try {
+                    var querySnapshot = await FirebaseFirestore.instance
+                        .collection('users')
+                        .where('phone', isEqualTo: phone)
+                        .get();
+
+                    if (context.mounted) {
+                      Navigator.pop(context);
+                    }
+
+                    if (querySnapshot.docs.isNotEmpty) {
+                      // Kondisi A: Nomor ditemukan di database
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: Colors.green,
+                            content: Text('Kontak "$name" ditemukan di sistem!'),
+                          ),
+                        );
+                      }
+                    } else {
+                      // Kondisi B: Nomor belum terdaftar di aplikasi
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            backgroundColor: Colors.orange,
+                            content: Text('Nomor $phone belum terdaftar di aplikasi.'),
+                          ),
+                        );
+                      }
+                    }
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          backgroundColor: Colors.red,
+                          content: Text('Terjadi kesalahan: $e'),
+                        ),
+                      );
+                    }
+                  }
                 }
               },
               child: const Text('SIMPAN', style: TextStyle(color: Color(0xFFD49A3B), fontWeight: FontWeight.bold)),
@@ -84,7 +163,7 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF2C2C2C), // Warna Charcoal sesuai permintaan
+          backgroundColor: const Color(0xFF2C2C2C),
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
@@ -121,7 +200,7 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
               ),
               title: const Text('Tambah Kontak Kapur', style: TextStyle(color: Color(0xFF2C2C2C), fontWeight: FontWeight.bold)),
               onTap: () => _showInputDialog(
-                title: 'Tambah Nama Kontak',
+                title: 'Tambah Kontak Kapur',
                 hint: 'Tulis nama teman...',
                 isGroup: false,
               ),

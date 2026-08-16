@@ -7,7 +7,7 @@ import 'package:firebase_crashlytics/firebase_crashlytics.dart'; // Import Crash
 
 // Import halaman dari folder screens
 import 'package:papantulis_chat/screens/mading_screen.dart';
-import 'package:papantulis_chat/screens/login_screen.dart';
+import 'package:papantulis_chat/screens/auth_screen.dart';
 import 'package:papantulis_chat/screens/panggilan_screen.dart';
 import 'package:papantulis_chat/screens/chat_list_screen.dart';
 import 'package:papantulis_chat/screens/profile_screen.dart';
@@ -107,7 +107,7 @@ class PapanTulisChatApp extends StatelessWidget {
           }
 
           // 4. Jika belum login
-          return const LoginScreen();
+          return AuthScreen();
         },
       ),
     );

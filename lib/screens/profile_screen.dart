@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String userId;
@@ -523,15 +522,14 @@ ListTile(
 
                           // Tombol Keluar
                           ListTile(
-                            leading: const Icon(Icons.logout, color: Colors.redAccent),
-                            title: const Text('Keluar (Pintu Kelas)', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
-                            onTap: () async {
-                              await FirebaseAuth.instance.signOut();
-                              if (context.mounted) {
-                                Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
-                              }
-                            },
-                          ),
+  leading: const Icon(Icons.logout, color: Colors.redAccent),
+  title: const Text('Keluar (Pintu Kelas)', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+  onTap: () async {
+    await FirebaseAuth.instance.signOut();
+    // Tidak perlu Navigator.pushReplacement lagi, 
+    // karena StreamBuilder di main.dart akan otomatis mendeteksi dan pindah halaman!
+  },
+),
                         ],
                       ),
                     ),
