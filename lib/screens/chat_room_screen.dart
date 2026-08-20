@@ -49,6 +49,114 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
  bool _isRecording = false;
  final AudioRecorder _audioRecorder = AudioRecorder();
 
+ void _showAutoDestructDurationDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Pilih Durasi Auto-Destruct', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.flash_on, color: Color(0xFFAB873A)),
+                title: const Text('Hilang dalam 1 Menit'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _sendAutoDestructMedia(const Duration(minutes: 1));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.hourglass_bottom, color: Color(0xFFAB873A)),
+                title: const Text('Hilang dalam 1 Jam'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _sendAutoDestructMedia(const Duration(hours: 1));
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.timer, color: Color(0xFFAB873A)),
+                title: const Text('Hilang dalam 24 Jam'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _sendAutoDestructMedia(const Duration(hours: 24));
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _sendAutoDestructMedia(Duration duration) async {
+    final picker = ImagePicker();
+    final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+    if (pickedFile == null) return; // Batal memilih gambar
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          backgroundColor: Color(0xFF37333B),
+          content: Text('Mengunggah media auto-destruct...'),
+        ),
+      );
+    }
+
+    try {
+  String fileName = DateTime.now().millisecondsSinceEpoch.toString();
+  Reference ref = FirebaseStorage.instance.ref().child('chat_destruct_media/$fileName.jpg');
+  
+  UploadTask uploadTask;
+
+  // Cek apakah berjalan di Web atau HP
+  if (kIsWeb) {
+    // --- KHUSUS WEB (Gunakan readAsBytes() untuk XFile) ---
+    final bytes = await pickedFile.readAsBytes();
+    uploadTask = ref.putData(bytes);
+  } else {
+    // --- KHUSUS HP (Gunakan putFile dan io.File) ---
+    io.File imageFile = io.File(pickedFile.path!);
+    uploadTask = ref.putFile(imageFile);
+  }
+
+  TaskSnapshot snapshot = await uploadTask;
+  String downloadUrl = await snapshot.ref.getDownloadURL();
+  
+      // 2. Hitung waktu kedaluwarsa
+      DateTime expiryTime = DateTime.now().add(duration);
+
+      // 3. Simpan pesan ke Firestore dengan tipe khusus 'image_destruct'
+      await _firestore.collection('chats').add({
+        'room': widget.name,
+        'senderUid': _auth.currentUser!.uid,
+        'type': 'image_destruct',
+        'mediaUrl': downloadUrl,
+        'timestamp': FieldValue.serverTimestamp(),
+        'expiresAt': Timestamp.fromDate(expiryTime),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            backgroundColor: Color(0xFF37333B),
+            content: Text('Media auto-destruct berhasil dikirim!'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.red,
+            content: Text('Gagal mengirim media: $e'),
+          ),
+        );
+      }
+    }
+  }
+
  late Stream<QuerySnapshot> _chatsStream;
 
  @override
@@ -883,58 +991,69 @@ StreamBuilder<DocumentSnapshot>(
         // 3. Tombol Titik Tiga (Menu Melompat Ke Atas dengan Lingkaran Abu-abu Gelap)
 if (_editingMessageId == null && !_isRecording)
   PopupMenuButton<String>(
-    icon: Container(
-      padding: const EdgeInsets.all(4),
-      decoration: const BoxDecoration(
-        // 🟢 DI SINI PERUBAHANNYA: Menggunakan warna arang tua (#37333B)
-        color: Color(0xFF37333B), 
-        shape: BoxShape.circle,
-      ),
-      child: const Icon(
-        Icons.more_vert,
-        color: Colors.white, // Ikon tetap putih agar kontras
-        size: 20,
+  icon: Container(
+    padding: const EdgeInsets.all(4),
+    decoration: const BoxDecoration(
+      color: Color(0xFF37333B), 
+      shape: BoxShape.circle,
+    ),
+    child: const Icon(
+      Icons.more_vert,
+      color: Colors.white,
+      size: 20,
+    ),
+  ),
+  offset: const Offset(0, -210), // Disesuaikan agar pop-up tidak terpotong ke atas
+  onSelected: (value) {
+    if (value == 'file') _pickFile();
+    if (value == 'camera') _pickImageFromCamera();
+    if (value == 'schedule') _showSchedulePicker();
+    if (value == 'auto_destruct') _showAutoDestructDurationDialog(context); // <-- Handler pilihan baru
+  },
+  itemBuilder: (BuildContext context) => [
+    const PopupMenuItem<String>(
+      value: 'file',
+      child: Row(
+        children: [
+          Icon(Icons.insert_drive_file_outlined, color: Color(0xFFAB873A), size: 20),
+          SizedBox(width: 12),
+          Text('Kirim File', style: TextStyle(fontSize: 14)),
+        ],
       ),
     ),
-    offset: const Offset(0, -160),
-    onSelected: (value) {
-      if (value == 'file') _pickFile();
-      if (value == 'camera') _pickImageFromCamera();
-      if (value == 'schedule') _showSchedulePicker();
-    },
-    itemBuilder: (BuildContext context) => [
-      const PopupMenuItem<String>(
-        value: 'file',
-        child: Row(
-          children: [
-            Icon(Icons.insert_drive_file_outlined, color: Color(0xFFAB873A), size: 20),
-            SizedBox(width: 12),
-            Text('Kirim File', style: TextStyle(fontSize: 14)),
-          ],
-        ),
+    const PopupMenuItem<String>(
+      value: 'camera',
+      child: Row(
+        children: [
+          Icon(Icons.camera_alt_outlined, color: Color(0xFFAB873A), size: 20),
+          SizedBox(width: 12),
+          Text('Kamera', style: TextStyle(fontSize: 14)),
+        ],
       ),
-      const PopupMenuItem<String>(
-        value: 'camera',
-        child: Row(
-          children: [
-            Icon(Icons.camera_alt_outlined, color: Color(0xFFAB873A), size: 20),
-            SizedBox(width: 12),
-            Text('Kamera', style: TextStyle(fontSize: 14)),
-          ],
-        ),
+    ),
+    const PopupMenuItem<String>(
+      value: 'schedule',
+      child: Row(
+        children: [
+          Icon(Icons.access_time, color: Color(0xFFAB873A), size: 20),
+          SizedBox(width: 12),
+          Text('Jadwalkan Pesan', style: TextStyle(fontSize: 14)),
+        ],
       ),
-      const PopupMenuItem<String>(
-        value: 'schedule',
-        child: Row(
-          children: [
-            Icon(Icons.access_time, color: Color(0xFFAB873A), size: 20),
-            SizedBox(width: 12),
-            Text('Jadwalkan Pesan', style: TextStyle(fontSize: 14)),
-          ],
-        ),
+    ),
+    // <-- Opsi Baru: Kirim Media Auto-Destruct -->
+    const PopupMenuItem<String>(
+      value: 'auto_destruct',
+      child: Row(
+        children: [
+          Icon(Icons.timer_off_outlined, color: Color(0xFFAB873A), size: 20),
+          SizedBox(width: 12),
+          Text('Pesan Media Sementara', style: TextStyle(fontSize: 14)),
+        ],
       ),
-    ],
-  ),
+    ),
+  ],
+),
     ],
   ),
 ),
@@ -1021,7 +1140,79 @@ if (_editingMessageId == null && !_isRecording)
                      ),
                    ),
                  ],
-                 if (type == 'image') ...[
+                 if (type == 'image_destruct') ...[
+                   Builder(
+                     builder: (context) {
+                       // Langsung ambil dari variabel 'chat' yang sudah ada di fungsi ini
+                       Timestamp? expiresAtTimestamp = chat['expiresAt'];
+                       bool isExpired = false;
+
+                       if (expiresAtTimestamp != null) {
+                         DateTime expiryTime = expiresAtTimestamp.toDate();
+                         if (DateTime.now().isAfter(expiryTime)) {
+                           isExpired = true;
+                         }
+                       }
+
+                       if (isExpired) {
+                         return Container(
+                           padding: const EdgeInsets.all(12),
+                           decoration: BoxDecoration(
+                             color: Colors.grey[200],
+                             borderRadius: BorderRadius.circular(10),
+                             border: Border.all(color: Colors.grey.shade400),
+                           ),
+                           child: Row(
+                             mainAxisSize: MainAxisSize.min,
+                             children: const [
+                               Icon(Icons.lock_clock_outlined, size: 18, color: Colors.grey),
+                               SizedBox(width: 8),
+                               Text(
+                                 'Media telah kedaluwarsa & dihapus',
+                                 style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey, fontSize: 13),
+                               ),
+                             ],
+                           ),
+                         );
+                       } else {
+                         return Column(
+                           crossAxisAlignment: CrossAxisAlignment.start,
+                           children: [
+                             Container(
+                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                               decoration: BoxDecoration(
+                                 color: const Color(0xFFAB873A).withOpacity(0.2),
+                                 borderRadius: BorderRadius.circular(4),
+                               ),
+                               child: Row(
+                                 mainAxisSize: MainAxisSize.min,
+                                 children: const [
+                                   Icon(Icons.timer_outlined, size: 12, color: Color(0xFFAB873A)),
+                                   SizedBox(width: 4),
+                                   Text(
+                                     'Auto-Destruct Media',
+                                     style: TextStyle(fontSize: 10, color: Color(0xFFAB873A), fontWeight: FontWeight.bold),
+                                   ),
+                                 ],
+                               ),
+                             ),
+                             const SizedBox(height: 4),
+                             ClipRRect(
+                               borderRadius: BorderRadius.circular(8),
+                               child: Image.network(
+                                 url, // Mengambil variabel url dari baris 1060
+                                 width: 200,
+                                 height: 200,
+                                 fit: BoxFit.cover,
+                                 errorBuilder: (_, __, ___) => const Icon(Icons.broken_image, size: 40),
+                               ),
+                             ),
+                           ],
+                         );
+                       }
+                     },
+                   ),
+                 ] else if (type == 'image') ...[
                    ClipRRect(
                      borderRadius: BorderRadius.circular(8),
                      child: Image.network(
