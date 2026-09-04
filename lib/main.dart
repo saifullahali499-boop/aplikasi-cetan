@@ -153,7 +153,7 @@ class _MainTabControllerState extends State<MainTabController> {
     super.dispose();
   }
 
-  @override
+ @override
   Widget build(BuildContext context) {
     const Color darkTextColor = Color(0xFF2D2B2A);
     final screenSize = MediaQuery.of(context).size;
@@ -180,7 +180,7 @@ class _MainTabControllerState extends State<MainTabController> {
             // Area Konten Utama
             PageView(
               controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(), // Disarankan agar swipe tab tidak mengganggu gesture chat
+              physics: const NeverScrollableScrollPhysics(), 
               onPageChanged: (index) {
                 setState(() {
                   _currentIndex = index;
@@ -222,6 +222,7 @@ class _MainTabControllerState extends State<MainTabController> {
                 },
                 child: PopupMenuButton<int>(
                   tooltip: 'Navigasi Menu',
+                  color: const Color(0xFF2A2E33), // Latar belakang popup Charcoal
                   onSelected: (index) {
                     setState(() {
                       _currentIndex = index;
@@ -231,11 +232,12 @@ class _MainTabControllerState extends State<MainTabController> {
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   child: _buildButtonDesign(isDragging: false),
                   itemBuilder: (context) => [
-                    _buildPopupItem(0, Icons.blur_circular, 'Mading Status', darkTextColor),
-                    _buildPopupItem(1, Icons.call_outlined, 'Riwayat Kapur', darkTextColor),
-                    _buildPopupItem(2, Icons.storefront_outlined, 'Kantin Lokal', darkTextColor),
-                    _buildPopupItem(3, Icons.chat_bubble_outline, 'Chat Obrolan', darkTextColor),
-                    _buildPopupItem(4, Icons.account_circle_outlined, 'Profil Anda', darkTextColor),
+                    // Ikon langsung diatur berwarna Amber (0xFFAB873A)
+                    _buildPopupItem(0, Icons.blur_circular, 'Mading Status', const Color(0xFFAB873A)),
+                    _buildPopupItem(1, Icons.call_outlined, 'Riwayat Kapur', const Color(0xFFAB873A)),
+                    _buildPopupItem(2, Icons.storefront_outlined, 'Kantin Lokal', const Color(0xFFAB873A)),
+                    _buildPopupItem(3, Icons.chat_bubble_outline, 'Chat Obrolan', const Color(0xFFAB873A)),
+                    _buildPopupItem(4, Icons.account_circle_outlined, 'Profil Anda', const Color(0xFFAB873A)),
                   ],
                 ),
               ),
@@ -257,7 +259,7 @@ class _MainTabControllerState extends State<MainTabController> {
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: isDragging ? Colors.black45 : Colors.black26, // Disesuaikan agar aman dari deprecated/crash
+              color: isDragging ? Colors.black45 : Colors.black26, 
               blurRadius: isDragging ? 14 : 6,
               offset: Offset(0, isDragging ? 8 : 3),
             ),
@@ -268,14 +270,20 @@ class _MainTabControllerState extends State<MainTabController> {
     );
   }
 
-  PopupMenuItem<int> _buildPopupItem(int value, IconData icon, String text, Color textColor) {
+  PopupMenuItem<int> _buildPopupItem(int value, IconData icon, String text, Color iconColor) {
     return PopupMenuItem<int>(
       value: value,
       child: Row(
         children: [
-          Icon(icon, color: textColor, size: 20),
+          Icon(icon, color: iconColor, size: 20), // Menggunakan warna ikon amber
           const SizedBox(width: 12),
-          Text(text, style: const TextStyle(fontWeight: FontWeight.w500)),
+          Text(
+            text, 
+            style: const TextStyle(
+              fontWeight: FontWeight.w500,
+              color: Colors.white, // Teks diatur menjadi putih agar kontras dengan latar charcoal
+            ),
+          ),
         ],
       ),
     );

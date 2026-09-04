@@ -14,6 +14,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:record/record.dart'; // Library Rekam suara
 import 'package:audioplayers/audioplayers.dart'; // Library Putar suara
 import 'package:http/http.dart' as http; // Pendukung pembaca audio di Web
+import 'popup_chat.dart';
 
 class ChatRoomScreen extends StatefulWidget {
   final String name;
@@ -990,70 +991,12 @@ StreamBuilder<DocumentSnapshot>(
       if (_editingMessageId == null && !_isRecording)
         // 3. Tombol Titik Tiga (Menu Melompat Ke Atas dengan Lingkaran Abu-abu Gelap)
 if (_editingMessageId == null && !_isRecording)
-  PopupMenuButton<String>(
-  icon: Container(
-    padding: const EdgeInsets.all(4),
-    decoration: const BoxDecoration(
-      color: Color(0xFF37333B), 
-      shape: BoxShape.circle,
-    ),
-    child: const Icon(
-      Icons.more_vert,
-      color: Colors.white,
-      size: 20,
-    ),
-  ),
-  offset: const Offset(0, -210), // Disesuaikan agar pop-up tidak terpotong ke atas
-  onSelected: (value) {
-    if (value == 'file') _pickFile();
-    if (value == 'camera') _pickImageFromCamera();
-    if (value == 'schedule') _showSchedulePicker();
-    if (value == 'auto_destruct') _showAutoDestructDurationDialog(context); // <-- Handler pilihan baru
-  },
-  itemBuilder: (BuildContext context) => [
-    const PopupMenuItem<String>(
-      value: 'file',
-      child: Row(
-        children: [
-          Icon(Icons.insert_drive_file_outlined, color: Color(0xFFAB873A), size: 20),
-          SizedBox(width: 12),
-          Text('Kirim File', style: TextStyle(fontSize: 14)),
-        ],
-      ),
-    ),
-    const PopupMenuItem<String>(
-      value: 'camera',
-      child: Row(
-        children: [
-          Icon(Icons.camera_alt_outlined, color: Color(0xFFAB873A), size: 20),
-          SizedBox(width: 12),
-          Text('Kamera', style: TextStyle(fontSize: 14)),
-        ],
-      ),
-    ),
-    const PopupMenuItem<String>(
-      value: 'schedule',
-      child: Row(
-        children: [
-          Icon(Icons.access_time, color: Color(0xFFAB873A), size: 20),
-          SizedBox(width: 12),
-          Text('Jadwalkan Pesan', style: TextStyle(fontSize: 14)),
-        ],
-      ),
-    ),
-    // <-- Opsi Baru: Kirim Media Auto-Destruct -->
-    const PopupMenuItem<String>(
-      value: 'auto_destruct',
-      child: Row(
-        children: [
-          Icon(Icons.timer_off_outlined, color: Color(0xFFAB873A), size: 20),
-          SizedBox(width: 12),
-          Text('Pesan Media Sementara', style: TextStyle(fontSize: 14)),
-        ],
-      ),
-    ),
-  ],
-),
+  PopupChatButton(
+  onPickFile: () => _pickFile(),
+  onPickCamera: () => _pickImageFromCamera(),
+  onShowSchedule: () => _showSchedulePicker(),
+  onShowAutoDestruct: () => _showAutoDestructDurationDialog(context),
+)
     ],
   ),
 ),
