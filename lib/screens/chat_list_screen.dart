@@ -876,14 +876,14 @@ _buildSketchTabButton("FAVORIT", indexTarget: 3),
                                           decoration: BoxDecoration(
                                             shape: BoxShape.circle,
                                             color: Colors.white,
-                                            border: Border.all(color: const Color(0xFF2C2C2C), width: 1.5),
+                                            border: Border.all(color: const Color(0xFFAB873A), width: 1.5),
                                             boxShadow: [
                                               BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))
                                             ]
                                           ),
                                           child: Icon(
                                             chat['isGroup'] ? Icons.group_outlined : Icons.person_outline_rounded,
-                                            color: const Color(0xFF2C2C2C),
+                                            color: const Color(0xFFAB873A),
                                             size: 26,
                                           ),
                                         ),

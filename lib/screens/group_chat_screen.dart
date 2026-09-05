@@ -23,11 +23,26 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final ScrollController _scrollController = ScrollController();
 
-  @override
-  void initState() {
-    super.initState();
-    _listenForIncomingCalls();
-  }
+  // Ganti bool _isTyping dengan ValueNotifier
+final ValueNotifier<bool> _isTyping = ValueNotifier<bool>(false);
+
+@override
+void initState() {
+  super.initState();
+  _listenForIncomingCalls();
+
+  // Pantau perubahan teks tanpa memanggil setState layar penuh
+  _messageController.addListener(() {
+    _isTyping.value = _messageController.text.trim().isNotEmpty;
+  });
+}
+
+@override
+void dispose() {
+  _messageController.dispose();
+  _isTyping.dispose(); // Jangan lupa dispose notifier
+  super.dispose();
+}
 
   // === 1. LISTENER PANGGILAN MASUK DARI FIRESTORE ===
   void _listenForIncomingCalls() {
@@ -488,7 +503,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             ),
           ),
 
-          // === BAR INPUT PESAN ===
+         // === BAR INPUT PESAN ===
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             color: const Color(0xFFF4F5F7),
@@ -517,25 +532,81 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                               ),
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.send_rounded, color: Color(0xFFAB873A), size: 22),
-                            onPressed: _sendMessage,
-                          ),
+                          // Tombol Dinamis dengan ValueListenableBuilder (Bebas Kedip)
+                          ValueListenableBuilder<bool>(
+  valueListenable: _isTyping,
+  builder: (context, isTyping, child) {
+    return IconButton(
+      icon: Icon(
+        isTyping ? Icons.send_rounded : Icons.mic_rounded,
+        color: const Color(0xFFAB873A),
+        size: 22,
+      ),
+      onPressed: () {
+        if (isTyping) {
+          _sendMessage(); // Kirim pesan teks saat mengetik
+        } else {
+          // Panggil fungsi rekam suara Anda di sini saat kosong
+        }
+      },
+    );
+  },
+),
                         ],
                       ),
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  const SizedBox(width: 8),
                  
-                  IconButton(
-                    icon: const Icon(Icons.attach_file_rounded, color: Colors.black54, size: 24),
-                    onPressed: _pickFile,
-                  ),
-                 
-                  IconButton(
-                    icon: const Icon(Icons.camera_alt_outlined, color: Colors.black54, size: 24),
-                    onPressed: _openCamera,
-                  ),
+                  // Tombol Popup Menu dengan lingkaran background Charcoal yang lebih kecil & melayang
+SizedBox(
+  width: 38,
+  height: 38,
+  child: Container(
+    decoration: const BoxDecoration(
+      color: Color(0xFF2A2E33), // Background lingkaran Charcoal
+      shape: BoxShape.circle,
+    ),
+    child: PopupMenuButton<int>(
+      tooltip: 'Opsi Lampiran',
+      color: const Color(0xFF2A2E33), // Latar belakang menu popup
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      position: PopupMenuPosition.over, // Memunculkan menu tepat di atas tombol
+      offset: const Offset(0, -115),     // Menggeser posisi popup ke atas agar tidak menutupi bar input
+      padding: EdgeInsets.zero,          // Menghilangkan padding bawaan agar ikon pas di tengah
+      icon: const Icon(Icons.more_vert, color: Colors.white, size: 20), // Ikon putih diperkecil
+      onSelected: (value) {
+        if (value == 0) {
+          _pickFile(); // Panggil fungsi file Anda
+        } else if (value == 1) {
+          _openCamera(); // Panggil fungsi kamera Anda
+        }
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem<int>(
+          value: 0,
+          child: Row(
+            children: const [
+              Icon(Icons.attach_file_rounded, color: Color(0xFFAB873A), size: 20), // Ikon Amber
+              SizedBox(width: 12),
+              Text('Kirim Dokumen/File', style: TextStyle(color: Colors.white, fontSize: 14)), // Teks Putih
+            ],
+          ),
+        ),
+        PopupMenuItem<int>(
+          value: 1,
+          child: Row(
+            children: const [
+              Icon(Icons.camera_alt_outlined, color: Color(0xFFAB873A), size: 20), // Ikon Amber
+              SizedBox(width: 12),
+              Text('Kamera', style: TextStyle(color: Colors.white, fontSize: 14)), // Teks Putih
+            ],
+          ),
+        ),
+      ],
+    ),
+  ),
+),
                 ],
               ),
             ),
