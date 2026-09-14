@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -10,113 +11,51 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
-  final _phoneController = TextEditingController();
-  final _otpController = TextEditingController();
+  final _numericIdController = TextEditingController();
+  final _passwordController = TextEditingController();
   final _nameController = TextEditingController();
-  final _auth = FirebaseAuth.instance;
-
-  bool _isOtpSent = false;
+  bool _isLoginMode = true; // true = Masuk, false = Daftar
   bool _isLoading = false;
-  
-  // Variable verifikasi
-  String? _verificationId;
-  ConfirmationResult? _webConfirmationResult; // Khusus Web
 
   @override
   void dispose() {
-    _phoneController.dispose();
-    _otpController.dispose();
+    _numericIdController.dispose();
+    _passwordController.dispose();
     _nameController.dispose();
     super.dispose();
   }
 
-  // 1. FUNGSI KIRIM SMS OTP (Web, Android, & iOS)
-  void _sendOtp() async {
-    final phone = _phoneController.text.trim();
-    if (phone.isEmpty) {
+  // 1. FUNGSI TRANSFORMASI EMAIL VIRTUAL DI BALIK LAYAR
+  String _getVirtualEmail(String numericId) {
+    return '$numericId@papantulis.anonymous';
+  }
+
+  // 2. FUNGSI UTAMA PENDAFTARAN & MASUK
+  void _submitAuth() async {
+    final numericId = _numericIdController.text.trim();
+    final password = _passwordController.text.trim();
+    final name = _nameController.text.trim();
+
+    // Validasi input kosong
+    if (numericId.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mohon masukkan nomor HP Anda! (Gunakan format +62)')),
+        const SnackBar(content: Text('ID Angka dan Kata Sandi wajib diisi!')),
       );
       return;
     }
 
-    setState(() => _isLoading = true);
-
-    if (kIsWeb) {
-      // --- Jalur Flutter Web ---
-      try {
-        _webConfirmationResult = await _auth.signInWithPhoneNumber(phone);
-        if (!mounted) return;
-        setState(() => _isOtpSent = true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Kode OTP berhasil dikirim via SMS (Web)!')),
-        );
-      } catch (e) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal mengirim SMS: ${e.toString().split(']').last}')),
-        );
-      } finally {
-        if (mounted) setState(() => _isLoading = false);
-      }
-    } else {
-      // --- Jalur Android & iOS Native ---
-      try {
-        await _auth.verifyPhoneNumber(
-          phoneNumber: phone,
-          verificationCompleted: (PhoneAuthCredential credential) async {
-            // Auto-verification (biasanya di Android jika SMS otomatis terbaca)
-            try {
-              UserCredential userCredential = await _auth.signInWithCredential(credential);
-              final name = _nameController.text.trim();
-              if (name.isNotEmpty) {
-                await userCredential.user?.updateDisplayName(name);
-              }
-              // StreamBuilder di main.dart akan menangani perpindahan halaman secara otomatis
-            } catch (e) {
-              debugPrint("Error auto-verification: $e");
-            }
-          },
-          verificationFailed: (FirebaseAuthException e) {
-            if (!mounted) return;
-            setState(() => _isLoading = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Gagal mengirim SMS: ${e.message}')),
-            );
-          },
-          codeSent: (String verificationId, int? resendToken) {
-            if (!mounted) return;
-            setState(() {
-              _isOtpSent = true;
-              _verificationId = verificationId;
-              _isLoading = false;
-            });
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Kode OTP berhasil dikirim via SMS!')),
-            );
-          },
-          codeAutoRetrievalTimeout: (String verificationId) {
-            _verificationId = verificationId;
-          },
-        );
-      } catch (e) {
-        if (!mounted) return;
-        setState(() => _isLoading = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Terjadi kesalahan sistem: $e')),
-        );
-      }
-    }
-  }
-
-  // 2. FUNGSI VERIFIKASI KODE OTP
-  void _verifyOtp() async {
-    final otp = _otpController.text.trim();
-    final name = _nameController.text.trim();
-
-    if (otp.isEmpty) {
+    // Validasi panjang ID Angka (4-12 digit)
+    if (numericId.length < 4 || numericId.length > 12) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Mohon isi Kode OTP Anda!')),
+        const SnackBar(content: Text('ID Angka harus terdiri dari 4 hingga 12 digit!')),
+      );
+      return;
+    }
+
+    // Validasi panjang password (minimal 6 karakter)
+    if (password.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kata Sandi minimal harus 6 karakter!')),
       );
       return;
     }
@@ -124,32 +63,54 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() => _isLoading = true);
 
     try {
-      UserCredential userCredential;
+      final virtualEmail = _getVirtualEmail(numericId);
+      final docRef = FirebaseFirestore.instance.collection('users').doc(numericId);
 
-      if (kIsWeb) {
-        // Verifikasi untuk Web
-        if (_webConfirmationResult == null) throw 'Sesi verifikasi Web tidak ditemukan.';
-        userCredential = await _webConfirmationResult!.confirm(otp);
-      } else {
-        // Verifikasi untuk Mobile Native
-        AuthCredential credential = PhoneAuthProvider.credential(
-          verificationId: _verificationId ?? '',
-          smsCode: otp,
+      if (!_isLoginMode) {
+        // --- LOGIKA PENDAFTARAN (REGISTRASI) ---
+        final docSnapshot = await docRef.get();
+        if (docSnapshot.exists) {
+          throw 'ID Angka sudah digunakan oleh pengguna lain. Silakan pilih ID lain.';
+        }
+
+        // Buat akun di Firebase Authentication menggunakan email virtual & password
+        UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: virtualEmail,
+          password: password,
         );
-        userCredential = await _auth.signInWithCredential(credential);
+
+        // Simpan data profil ke Firestore menggunakan ID Angka sebagai Document ID
+        await docRef.set({
+          'numericId': numericId,
+          'uid': userCredential.user?.uid,
+          'name': name.isNotEmpty ? name : 'Pengguna $numericId',
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        // Update Display Name jika diisi
+        if (name.isNotEmpty) {
+          await userCredential.user?.updateDisplayName(name);
+        }
+      } else {
+        // --- LOGIKA MASUK (LOGIN) ---
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: virtualEmail,
+          password: password,
+        );
       }
 
-      // Update Display Name jika diisi
-      if (name.isNotEmpty) {
-        await userCredential.user?.updateDisplayName(name);
-      }
+      // --- SIMPAN ID ANGKA KE SHARED PREFERENCES ---
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_numeric_id', numericId);
 
-      // CATATAN: Tidak perlu Navigator.pushReplacement()! 
-      // StreamBuilder di main.dart akan otomatis merender MainTabController().
     } catch (e) {
       if (!mounted) return;
+      String errorMessage = e.toString();
+      if (e is FirebaseAuthException) {
+        errorMessage = e.message ?? errorMessage;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Kode OTP salah atau kedaluwarsa: ${e.toString().split(']').last}')),
+        SnackBar(content: Text('Gagal: ${errorMessage.split(']').last.trim()}')),
       );
     } finally {
       if (mounted) {
@@ -169,9 +130,9 @@ class _AuthScreenState extends State<AuthScreen> {
       appBar: AppBar(
         backgroundColor: Colors.black,
         elevation: 0,
-        title: const Text(
-          'OTENTIKASI MASUK',
-          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+        title: Text(
+          _isLoginMode ? 'MASUK AKUN' : 'PENDAFTARAN AKUN',
+          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 1.2),
         ),
       ),
       body: Center(
@@ -192,59 +153,22 @@ class _AuthScreenState extends State<AuthScreen> {
                   const CircleAvatar(
                     radius: 40,
                     backgroundColor: accentColor,
-                    child: Icon(Icons.phone_android_outlined, size: 45, color: Colors.white),
+                    child: Icon(Icons.lock_person_outlined, size: 45, color: Colors.white),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    'MASUK VIA NOMOR HP',
-                    style: TextStyle(color: darkTextColor, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                  Text(
+                    _isLoginMode ? 'MASUK DENGAN ID & SANDI' : 'BUAT ID & KATA SANDI',
+                    style: const TextStyle(color: darkTextColor, fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 0.5),
                   ),
                   const SizedBox(height: 24),
 
-                  // TAHAP 1: INPUT NOMOR TELEPON
-                  if (!_isOtpSent) ...[
-                    TextField(
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      style: const TextStyle(color: darkTextColor),
-                      decoration: InputDecoration(
-                        labelText: 'Nomor HP (Contoh: +62812345678)',
-                        labelStyle: const TextStyle(color: Colors.black54),
-                        prefixIcon: const Icon(Icons.phone, color: Colors.black45),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(color: Colors.black26),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(color: accentColor, width: 2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    _isLoading
-                        ? const CircularProgressIndicator(color: accentColor)
-                        : SizedBox(
-                            width: double.infinity,
-                            height: 50,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: accentColor,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                              onPressed: _sendOtp,
-                              child: const Text('Kirim SMS OTP', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                            ),
-                          ),
-                  ],
-
-                  // TAHAP 2: INPUT NAMA & KODE OTP
-                  if (_isOtpSent) ...[
+                  // INPUT NAMA (Hanya muncul saat mode Daftar)
+                  if (!_isLoginMode) ...[
                     TextField(
                       controller: _nameController,
                       style: const TextStyle(color: darkTextColor),
                       decoration: InputDecoration(
-                        labelText: 'Nama Tampilan Anda (Opsional)',
+                        labelText: 'Nama Tampilan (Opsional)',
                         labelStyle: const TextStyle(color: Colors.black54),
                         prefixIcon: const Icon(Icons.person_outline, color: Colors.black45),
                         enabledBorder: OutlineInputBorder(
@@ -258,45 +182,84 @@ class _AuthScreenState extends State<AuthScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    TextField(
-                      controller: _otpController,
-                      keyboardType: TextInputType.number,
-                      style: const TextStyle(color: darkTextColor),
-                      decoration: InputDecoration(
-                        labelText: '6 Digit Kode OTP SMS',
-                        labelStyle: const TextStyle(color: Colors.black54),
-                        prefixIcon: const Icon(Icons.lock_clock_outlined, color: Colors.black45),
-                        enabledBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(color: Colors.black26),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderSide: const BorderSide(color: accentColor, width: 2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                  ],
+
+                  // INPUT ID ANGKA
+                  TextField(
+                    controller: _numericIdController,
+                    keyboardType: TextInputType.number,
+                    style: const TextStyle(color: darkTextColor),
+                    decoration: InputDecoration(
+                      labelText: 'ID Angka (4–12 digit)',
+                      labelStyle: const TextStyle(color: Colors.black54),
+                      prefixIcon: const Icon(Icons.badge_outlined, color: Colors.black45),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(color: Colors.black26),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(color: accentColor, width: 2),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    const SizedBox(height: 24),
-                    _isLoading
-                        ? const CircularProgressIndicator(color: accentColor)
-                        : SizedBox(
-                            width: double.infinity,
-                            height: 50,
-                            child: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: accentColor,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
-                              onPressed: _verifyOtp,
-                              child: const Text('Verifikasi & Masuk', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // INPUT KATA SANDI
+                  TextField(
+                    controller: _passwordController,
+                    obscureText: true,
+                    style: const TextStyle(color: darkTextColor),
+                    decoration: InputDecoration(
+                      labelText: 'Kata Sandi (Min. 6 karakter)',
+                      labelStyle: const TextStyle(color: Colors.black54),
+                      prefixIcon: const Icon(Icons.lock_outline, color: Colors.black45),
+                      enabledBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(color: Colors.black26),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderSide: const BorderSide(color: accentColor, width: 2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // TOMBOL AKSI UTAMA
+                  _isLoading
+                      ? const CircularProgressIndicator(color: accentColor)
+                      : SizedBox(
+                          width: double.infinity,
+                          height: 50,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: accentColor,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            onPressed: _submitAuth,
+                            child: Text(
+                              _isLoginMode ? 'Masuk' : 'Daftar Sekarang',
+                              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                             ),
                           ),
-                    const SizedBox(height: 12),
-                    TextButton(
-                      onPressed: () => setState(() => _isOtpSent = false),
-                      child: const Text('Ganti Nomor HP', style: TextStyle(color: accentColor, fontWeight: FontWeight.bold)),
-                    )
-                  ],
+                        ),
+                  const SizedBox(height: 12),
+
+                  // TOMBOL BERALIH ANTARA MASUK DAN DAFTAR
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _isLoginMode = !_isLoginMode;
+                      });
+                    },
+                    child: Text(
+                      _isLoginMode
+                          ? 'Belum punya ID? Daftar di sini'
+                          : 'Sudah punya ID? Masuk di sini',
+                      style: const TextStyle(color: accentColor, fontWeight: FontWeight.bold),
+                    ),
+                  ),
                 ],
               ),
             ),

@@ -43,8 +43,6 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
  StreamSubscription<QuerySnapshot>? _chatSubscription;
 
  Map<String, dynamic>? _replyingMessage;
- Map<String, dynamic>? _editingMessage;
- String? _editingMessageId;
 
  // 🟢 BARU: State kontrol untuk Voice Note
  bool _isRecording = false;
@@ -333,59 +331,36 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
  }
 
  void _sendMessage() async {
-   final currentUser = _auth.currentUser;
-   if (currentUser == null) return;
-   if (_messageController.text.trim().isEmpty) return;
-   String messageText = _messageController.text.trim();
+  final currentUser = _auth.currentUser;
+  if (currentUser == null) return;
+  if (_messageController.text.trim().isEmpty) return;
+  String messageText = _messageController.text.trim();
 
-   if (_editingMessageId != null) {
-     _updateMessage(messageText);
-     return;
-   }
+  _messageController.clear();
 
-   _messageController.clear();
+  String? replyText = _replyingMessage != null ? _replyingMessage!['text'] : null;
+  String? replySender = _replyingMessage != null ? _replyingMessage!['sender'] : null;
 
-   String? replyText = _replyingMessage != null ? _replyingMessage!['text'] : null;
-   String? replySender = _replyingMessage != null ? _replyingMessage!['sender'] : null;
+  try {
+    await _firestore.collection('chats').add({
+      'text': messageText,
+      'type': 'text',
+      'sender': currentUser.displayName ?? 'Ali (Anda)',
+      'senderUid': currentUser.uid,
+      'timestamp': FieldValue.serverTimestamp(),
+      'room': widget.name,
+      'isRead': false,
+      'isStarred': false,
+      'replyToText': replyText,
+      'replyToSender': replySender,
+    });
 
-   try {
-     await _firestore.collection('chats').add({
-       'text': messageText,
-       'type': 'text',
-       'sender': currentUser.displayName ?? 'Ali (Anda)',
-       'senderUid': currentUser.uid,
-       'timestamp': FieldValue.serverTimestamp(),
-       'room': widget.name,
-       'isRead': false,
-       'isStarred': false,
-       'replyToText': replyText,
-       'replyToSender': replySender,
-     });
+    setState(() { _replyingMessage = null; });
+  } catch (e) {
+    _showSnackBar('Gagal mengirim pesan: $e');
+  }
+}
 
-     setState(() { _replyingMessage = null; });
-   } catch (e) {
-     _showSnackBar('Gagal mengirim pesan: $e');
-   }
- }
-
- void _updateMessage(String newText) async {
-   if (_editingMessageId == null) return;
-   _messageController.clear();
-
-   try {
-     await _firestore.collection('chats').doc(_editingMessageId).update({
-       'text': newText,
-     });
-
-     setState(() {
-       _editingMessage = null;
-       _editingMessageId = null;
-     });
-     _showSnackBar('Pesan berhasil diperbarui');
-   } catch (e) {
-     _showSnackBar('Gagal memperbarui pesan: $e');
-   }
- }
 
  void _showSchedulePicker() async {
    if (_messageController.text.trim().isEmpty) {
@@ -506,7 +481,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
            children: [
              const SizedBox(height: 8),
              ListTile(
-               leading: const Icon(Icons.reply, color: Colors.white70),
+               leading: const Icon(Icons.reply, color: Color(0xFFAB873A)),
                title: const Text('Balas', style: TextStyle(color: Colors.white)),
                onTap: () {
                  Navigator.pop(context);
@@ -515,20 +490,15 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
              ),
              if (isMe && type == 'text')
                ListTile(
-                 leading: const Icon(Icons.edit_outlined, color: Colors.blueAccent),
+                 leading: const Icon(Icons.edit_outlined, color: Color(0xFFAB873A)),
                  title: const Text('Edit Pesan', style: TextStyle(color: Colors.white)),
                  onTap: () {
                    Navigator.pop(context);
-                   setState(() {
-                     _editingMessage = chat;
-                     _editingMessageId = messageId;
-                     _messageController.text = text; 
-                     _replyingMessage = null; 
-                   });
+                   _showEditMessageDialog(messageId, text);
                  },
                ),
              ListTile(
-               leading: const Icon(Icons.forward, color: Colors.white70),
+               leading: const Icon(Icons.forward, color: Color(0xFFAB873A)),
                title: const Text('Teruskan', style: TextStyle(color: Colors.white)),
                onTap: () {
                  Navigator.pop(context);
@@ -536,7 +506,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                },
              ),
              ListTile(
-               leading: const Icon(Icons.copy, color: Colors.white70),
+               leading: const Icon(Icons.copy, color: Color(0xFFAB873A)),
                title: const Text('Salin', style: TextStyle(color: Colors.white)),
                onTap: () async {
                  Navigator.pop(context);
@@ -554,7 +524,7 @@ class _ChatRoomScreenState extends State<ChatRoomScreen> {
                },
              ),
              ListTile(
-               leading: const Icon(Icons.info_outline, color: Colors.white70),
+               leading: const Icon(Icons.info_outline, color: Color(0xFFAB873A)),
                title: const Text('Info', style: TextStyle(color: Colors.white)),
                onTap: () {
                  Navigator.pop(context);
@@ -886,117 +856,86 @@ StreamBuilder<DocumentSnapshot>(
                  ],
                ),
              ),
-           
-           if (_editingMessage != null)
-             Container(
-               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-               color: Colors.blue.withOpacity(0.1),
-               child: Row(
-                 children: [
-                   const Icon(Icons.edit, color: Colors.blueAccent, size: 18),
-                   const SizedBox(width: 8),
-                   Expanded(
-                     child: Column(
-                       crossAxisAlignment: CrossAxisAlignment.start,
-                       mainAxisSize: MainAxisSize.min,
-                       children: [
-                         const Text(
-                           "Edit Pesan",
-                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.blueAccent),
-                         ),
-                         Text(
-                           _editingMessage!['text'] ?? '',
-                           maxLines: 1,
-                           overflow: TextOverflow.ellipsis,
-                           style: const TextStyle(fontSize: 13, color: Colors.black87),
-                         ),
-                       ],
-                     ),
-                   ),
-                   IconButton(
-                     icon: const Icon(Icons.close, size: 18, color: Colors.black54),
-                     onPressed: () {
-                       setState(() { 
-                         _editingMessage = null; 
-                         _editingMessageId = null;
-                         _messageController.clear(); 
-                       });
-                     },
-                   )
-                 ],
-               ),
-             ),
 
-           Container(
+          Container(
   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
   decoration: const BoxDecoration(color: Colors.transparent),
   child: Row(
     children: [
-      // 1. Kotak Pesan Utama (Mengambil ruang sisa)
+      // 1. Kotak Pesan Utama (Putih, berisi Teks, Mic, dan Kirim)
       Expanded(
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.only(left: 16, right: 4),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: Colors.white, // Latar belakang putih
             border: Border.all(color: Colors.black38, width: 1.2),
             borderRadius: BorderRadius.circular(30),
           ),
-          child: _isRecording
-              ? const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 14),
-                  child: Text(
-                    "🔴 Sedang merekam suara...",
-                    style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-                  ),
+          child: Row(
+            children: [
+              // A. Input Teks
+              Expanded(
+                child: _isRecording
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 14),
+                        child: Text(
+                          "🔴 Sedang merekam suara...",
+                          style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                        ),
+                      )
+                    : TextField(
+                        controller: _messageController,
+                        style: const TextStyle(color: Colors.black),
+                        onChanged: (text) {
+                          setState(() {});
+                        },
+                        onSubmitted: (_) => _sendMessage(),
+                        decoration: const InputDecoration(
+                          hintText: "Message...",
+                          hintStyle: TextStyle(color: Colors.black38),
+                          border: InputBorder.none,
+                        ),
+                      ),
+              ),
+              
+              // B. Tombol Mic / Kirim di dalam kotak putih
+              if (_isRecording)
+                IconButton(
+                  icon: const Icon(Icons.stop_circle, color: Colors.red, size: 30),
+                  onPressed: _toggleRecording,
                 )
-              : TextField(
-                  controller: _messageController,
-                  style: const TextStyle(color: Colors.black),
-                  onChanged: (text) {
-                    setState(() {}); // Biar tombol mic/kirim berubah real-time
-                  },
-                  onSubmitted: (_) => _sendMessage(),
-                  decoration: const InputDecoration(
-                    hintText: "Message...",
-                    hintStyle: TextStyle(color: Colors.black38),
-                    border: InputBorder.none,
+              else if (_messageController.text.trim().isEmpty)
+                IconButton(
+                  icon: const Icon(Icons.mic_rounded, color: Color(0xFFAB873A), size: 22),
+                  onPressed: _toggleRecording,
+                )
+              else
+                IconButton(
+                  icon: const Icon(
+                    Icons.send_rounded,
+                    color: Color(0xFFAB873A),
+                    size: 22,
                   ),
+                  onPressed: _sendMessage,
                 ),
+            ],
+          ),
         ),
       ),
+      
       const SizedBox(width: 8),
 
-      // 2. Tombol Aksi Utama: Kirim atau Mic (Gantian otomatis)
-      if (_isRecording)
-        IconButton(
-          icon: const Icon(Icons.stop_circle, color: Colors.red, size: 30),
-          onPressed: _toggleRecording,
-        )
-      else if (_messageController.text.trim().isEmpty && _editingMessageId == null)
-        IconButton(
-          icon: const Icon(Icons.mic_none, color: Colors.black54, size: 28),
-          onPressed: _toggleRecording,
-        )
-      else
-        IconButton(
-          icon: Icon(
-            _editingMessageId != null ? Icons.check_circle : Icons.send,
-            color: const Color(0xFFAB873A),
-            size: 28,
+      // 2. Tombol Titik Tiga (Diperbesar sedikit menggunakan Transform.scale)
+      if (!_isRecording)
+        Transform.scale(
+          scale: 1.05, // Memperbesar sedikit ukuran tombol titik tiga
+          child: PopupChatButton(
+            onPickFile: () => _pickFile(),
+            onPickCamera: () => _pickImageFromCamera(),
+            onShowSchedule: () => _showSchedulePicker(),
+            onShowAutoDestruct: () => _showAutoDestructDurationDialog(context),
           ),
-          onPressed: _sendMessage,
         ),
-
-      // 3. Tombol Titik Tiga (Menu Melompat Ke Atas)
-      if (_editingMessageId == null && !_isRecording)
-        // 3. Tombol Titik Tiga (Menu Melompat Ke Atas dengan Lingkaran Abu-abu Gelap)
-if (_editingMessageId == null && !_isRecording)
-  PopupChatButton(
-  onPickFile: () => _pickFile(),
-  onPickCamera: () => _pickImageFromCamera(),
-  onShowSchedule: () => _showSchedulePicker(),
-  onShowAutoDestruct: () => _showAutoDestructDurationDialog(context),
-)
     ],
   ),
 ),
@@ -1221,7 +1160,46 @@ if (_editingMessageId == null && !_isRecording)
      ),
    );
  }
-}
+ // === FUNGSI DIALOG EDIT PESAN ===
+  void _showEditMessageDialog(String messageId, String currentText) {
+    final TextEditingController editController = TextEditingController(text: currentText);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF2D2B2A),
+        title: const Text('Edit Pesan', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: editController,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'Ubah pesan...',
+            hintStyle: TextStyle(color: Colors.white54),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE5BE5F))),
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE5BE5F))),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal', style: TextStyle(color: Colors.white70)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5BE5F)),
+            onPressed: () async {
+              if (editController.text.trim().isNotEmpty) {
+                await FirebaseFirestore.instance.collection('chats').doc(messageId).update({
+                  'text': editController.text.trim(),
+                });
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Simpan', style: TextStyle(color: Color(0xFF1E1400))),
+          ),
+        ],
+      ),
+    );
+  }
+} // <-- Kurung kurawal penutup kelas _ChatRoomScreenState ada di sini
 
 // 🟢 BARU: Sub-Widget Mandiri khusus pengendali tombol Play/Pause tiap gelembung Voice Note
 class VoiceNotePlayer extends StatefulWidget {

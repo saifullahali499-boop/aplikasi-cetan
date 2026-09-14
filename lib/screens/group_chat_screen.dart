@@ -23,26 +23,24 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final ScrollController _scrollController = ScrollController();
 
-  // Ganti bool _isTyping dengan ValueNotifier
-final ValueNotifier<bool> _isTyping = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> _isTyping = ValueNotifier<bool>(false);
 
-@override
-void initState() {
-  super.initState();
-  _listenForIncomingCalls();
+  @override
+  void initState() {
+    super.initState();
+    _listenForIncomingCalls();
 
-  // Pantau perubahan teks tanpa memanggil setState layar penuh
-  _messageController.addListener(() {
-    _isTyping.value = _messageController.text.trim().isNotEmpty;
-  });
-}
+    _messageController.addListener(() {
+      _isTyping.value = _messageController.text.trim().isNotEmpty;
+    });
+  }
 
-@override
-void dispose() {
-  _messageController.dispose();
-  _isTyping.dispose(); // Jangan lupa dispose notifier
-  super.dispose();
-}
+  @override
+  void dispose() {
+    _messageController.dispose();
+    _isTyping.dispose();
+    super.dispose();
+  }
 
   // === 1. LISTENER PANGGILAN MASUK DARI FIRESTORE ===
   void _listenForIncomingCalls() {
@@ -103,7 +101,7 @@ void dispose() {
                 MaterialPageRoute(
                   builder: (context) => WebRTCCallScreen(
                     callId: callRoomId,
-                    isVideoCall: true, // Bisa otomatis menyesuaikan atau default video/audio
+                    isVideoCall: true,
                     receiverName: widget.groupName,
                     isCaller: false,
                   ),
@@ -165,8 +163,8 @@ void dispose() {
         'senderUid': user.uid,
         'senderName': user.displayName ?? user.email ?? 'Anggota Kapur',
         'timestamp': FieldValue.serverTimestamp(),
-        'type': type, 
-        'fileUrl': downloadUrl, 
+        'type': type,
+        'fileUrl': downloadUrl,
         'isRead': false,
       });
 
@@ -198,13 +196,13 @@ void dispose() {
   Future<void> _pickFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
       type: FileType.any,
-      withData: true, 
+      withData: true,
     );
 
     if (result != null && result.files.first.bytes != null) {
       Uint8List fileBytes = result.files.first.bytes!;
       String fileName = result.files.first.name;
-     
+    
       String type = (fileName.toLowerCase().endsWith('.jpg') ||
                     fileName.toLowerCase().endsWith('.png') ||
                     fileName.toLowerCase().endsWith('.jpeg') ||
@@ -249,7 +247,7 @@ void dispose() {
       MaterialPageRoute(
         builder: (context) => WebRTCCallScreen(
           callId: callRoomId,
-          isVideoCall: false, // <-- Diatur ke false agar hanya audio saja
+          isVideoCall: false,
           receiverName: widget.groupName,
           isCaller: true,
         ),
@@ -257,12 +255,114 @@ void dispose() {
     );
   }
 
+  // === 9. MENU OPSI PESAN SAAT DITEKAN LAMA (LONG PRESS) ===
+  void _showOptionsBottomSheet(String messageId, String messageText, bool isMe) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF2D2B2A),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: const Icon(Icons.reply, color: Color(0xFFE5BE5F)),
+                title: const Text('Balas', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Tambahkan logika balas pesan jika ada
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.copy, color: Color(0xFFE5BE5F)),
+                title: const Text('Salin Teks', style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  // Tambahkan logika salin clipboard jika perlu
+                },
+              ),
+              if (isMe) ...[
+                ListTile(
+                  leading: const Icon(Icons.edit, color: Color(0xFFE5BE5F)),
+                  title: const Text('Edit Pesan', style: TextStyle(color: Colors.white)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showEditMessageDialog(messageId, messageText);
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.redAccent),
+                  title: const Text('Hapus Pesan', style: TextStyle(color: Colors.redAccent)),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _deleteMessage(messageId);
+                  },
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // === 10. DIALOG EDIT PESAN ===
+  void _showEditMessageDialog(String messageId, String currentText) {
+    final TextEditingController editController = TextEditingController(text: currentText);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF2D2B2A),
+        title: const Text('Edit Pesan', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: editController,
+          style: const TextStyle(color: Colors.white),
+          decoration: const InputDecoration(
+            hintText: 'Ubah pesan...',
+            hintStyle: TextStyle(color: Colors.white54),
+            enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE5BE5F))),
+            focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFFE5BE5F))),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal', style: TextStyle(color: Colors.white70)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFE5BE5F)),
+            onPressed: () async {
+              if (editController.text.trim().isNotEmpty) {
+                await FirebaseFirestore.instance.collection('chats').doc(messageId).update({
+                  'text': editController.text.trim(),
+                });
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Simpan', style: TextStyle(color: Color(0xFF1E1400))),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // === 11. HAPUS PESAN DARI FIRESTORE ===
+  Future<void> _deleteMessage(String messageId) async {
+    try {
+      await FirebaseFirestore.instance.collection('chats').doc(messageId).delete();
+    } catch (e) {
+      debugPrint("Gagal menghapus pesan: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUser = _auth.currentUser;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F5F7), 
+      backgroundColor: const Color(0xFFF4F5F7),
 
       // === APPBAR HITAM CHARCOAL ===
       appBar: AppBar(
@@ -311,15 +411,13 @@ void dispose() {
           ),
         ),
         actions: [
-          // Tombol Panggilan Suara (Audio Call)
           IconButton(
             icon: const Icon(Icons.phone_outlined, color: Colors.white70),
-            onPressed: _startAudioCall, // <-- Sekarang terhubung ke fungsi _startAudioCall
+            onPressed: _startAudioCall,
           ),
-          // Tombol Panggilan Video (Video Call)
           IconButton(
             icon: const Icon(Icons.videocam_outlined, color: Colors.white70),
-            onPressed: _startVideoCall, 
+            onPressed: _startVideoCall,
           ),
           const SizedBox(width: 4),
         ],
@@ -348,12 +446,13 @@ void dispose() {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
-                    final data = docs[index].data() as Map<String, dynamic>;
+                    final doc = docs[index];
+                    final data = doc.data() as Map<String, dynamic>;
                     final bool isMe = data['senderUid'] == currentUser?.uid;
                     final String senderName = data['senderName'] ?? 'Anonim';
                     final String text = data['text'] ?? '';
                     final bool isRead = data['isRead'] ?? false;
-                   
+                  
                     final String messageType = data['type'] ?? 'text';
                     final String? fileUrl = data['fileUrl'];
 
@@ -368,132 +467,136 @@ void dispose() {
 
                     return Align(
                       alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(vertical: 4),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        constraints: BoxConstraints(
-                          maxWidth: MediaQuery.of(context).size.width * 0.75,
-                        ),
-                        decoration: BoxDecoration(
-                          color: bubbleColor,
-                          borderRadius: BorderRadius.only(
-                            topLeft: const Radius.circular(18),
-                            topRight: const Radius.circular(18),
-                            bottomLeft: Radius.circular(isMe ? 18 : 4),
-                            bottomRight: Radius.circular(isMe ? 4 : 18),
+                      child: GestureDetector(
+                        // FITUR CHAT PERSONAL: Ditekan lama untuk memunculkan menu opsi pesan
+                        onLongPress: () => _showOptionsBottomSheet(doc.id, text, isMe),
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          constraints: BoxConstraints(
+                            maxWidth: MediaQuery.of(context).size.width * 0.75,
                           ),
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black12, blurRadius: 3, offset: Offset(1, 2))
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (!isMe) ...[
-                              Text(
-                                senderName,
-                                style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF533B00),
-                                ),
-                              ),
-                              const SizedBox(height: 3),
+                          decoration: BoxDecoration(
+                            color: bubbleColor,
+                            borderRadius: BorderRadius.only(
+                              topLeft: const Radius.circular(18),
+                              topRight: const Radius.circular(18),
+                              bottomLeft: Radius.circular(isMe ? 18 : 4),
+                              bottomRight: Radius.circular(isMe ? 4 : 18),
+                            ),
+                            boxShadow: const [
+                              BoxShadow(color: Colors.black12, blurRadius: 3, offset: Offset(1, 2))
                             ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (!isMe) ...[
+                                Text(
+                                  senderName,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color(0xFF533B00),
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                              ],
 
-                            if (messageType == 'image' && fileUrl != null) ...[
-                              GestureDetector(
-                                onTap: () async {
-                                  final Uri url = Uri.parse(fileUrl);
-                                  if (await canLaunchUrl(url)) {
-                                    await launchUrl(url, mode: LaunchMode.externalApplication);
-                                  }
-                                },
-                                child: Container(
-                                  margin: const EdgeInsets.only(bottom: 4),
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Image.network(
-                                      fileUrl,
-                                      width: 200,
-                                      height: 180,
-                                      fit: BoxFit.cover,
-                                      loadingBuilder: (context, child, progress) {
-                                        if (progress == null) return child;
-                                        return const SizedBox(
-                                          width: 200,
-                                          height: 180,
-                                          child: Center(child: CircularProgressIndicator(color: Color(0xFFAB873A))),
-                                        );
-                                      },
+                              if (messageType == 'image' && fileUrl != null) ...[
+                                GestureDetector(
+                                  onTap: () async {
+                                    final Uri url = Uri.parse(fileUrl);
+                                    if (await canLaunchUrl(url)) {
+                                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                                    }
+                                  },
+                                  child: Container(
+                                    margin: const EdgeInsets.only(bottom: 4),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.network(
+                                        fileUrl,
+                                        width: 200,
+                                        height: 180,
+                                        fit: BoxFit.cover,
+                                        loadingBuilder: (context, child, progress) {
+                                          if (progress == null) return child;
+                                          return const SizedBox(
+                                            width: 200,
+                                            height: 180,
+                                            child: Center(child: CircularProgressIndicator(color: Color(0xFFAB873A))),
+                                          );
+                                        },
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ] else if (messageType == 'file' && fileUrl != null) ...[
-                              InkWell(
-                                onTap: () async {
-                                  final Uri url = Uri.parse(fileUrl);
-                                  if (await canLaunchUrl(url)) {
-                                    await launchUrl(url, mode: LaunchMode.externalApplication);
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: Colors.black.withOpacity(0.06),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(Icons.insert_drive_file_rounded, color: Color(0xFF533B00), size: 28),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          text.replaceFirst('📎 Dokumen: ', ''),
-                                          style: TextStyle(color: textColor, fontSize: 13, fontWeight: FontWeight.w600),
-                                          overflow: TextOverflow.ellipsis,
+                              ] else if (messageType == 'file' && fileUrl != null) ...[
+                                InkWell(
+                                  onTap: () async {
+                                    final Uri url = Uri.parse(fileUrl);
+                                    if (await canLaunchUrl(url)) {
+                                      await launchUrl(url, mode: LaunchMode.externalApplication);
+                                    }
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.06),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.insert_drive_file_rounded, color: Color(0xFF533B00), size: 28),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            text.replaceFirst('📎 Dokumen: ', ''),
+                                            style: TextStyle(color: textColor, fontSize: 13, fontWeight: FontWeight.w600),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(height: 4),
-                            ] else ...[
-                              Text(
-                                text,
-                                style: TextStyle(
-                                  color: textColor,
-                                  fontSize: 15,
-                                  height: 1.2,
+                                const SizedBox(height: 4),
+                              ] else ...[
+                                Text(
+                                  text,
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontSize: 15,
+                                    height: 1.2,
+                                  ),
                                 ),
+                              ],
+                              const SizedBox(height: 4),
+
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  const SizedBox(width: 40),
+                                  Text(
+                                    timeString,
+                                    style: TextStyle(color: textColor.withOpacity(0.5), fontSize: 9),
+                                  ),
+                                  if (isMe && !isRead) ...[
+                                    const SizedBox(width: 6),
+                                    const Icon(
+                                      Icons.circle,
+                                      size: 6,
+                                      color: Colors.black54,
+                                    ),
+                                  ],
+                                ],
                               ),
                             ],
-                            const SizedBox(height: 4),
-
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              mainAxisAlignment: MainAxisAlignment.end,
-                              children: [
-                                const SizedBox(width: 40),
-                                Text(
-                                  timeString,
-                                  style: TextStyle(color: textColor.withOpacity(0.5), fontSize: 9),
-                                ),
-                                if (isMe && !isRead) ...[
-                                  const SizedBox(width: 6),
-                                  const Icon(
-                                    Icons.circle,
-                                    size: 6,
-                                    color: Colors.black54,
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ],
+                          ),
                         ),
                       ),
                     );
@@ -503,7 +606,7 @@ void dispose() {
             ),
           ),
 
-         // === BAR INPUT PESAN ===
+          // === BAR INPUT PESAN ===
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
             color: const Color(0xFFF4F5F7),
@@ -532,81 +635,80 @@ void dispose() {
                               ),
                             ),
                           ),
-                          // Tombol Dinamis dengan ValueListenableBuilder (Bebas Kedip)
                           ValueListenableBuilder<bool>(
-  valueListenable: _isTyping,
-  builder: (context, isTyping, child) {
-    return IconButton(
-      icon: Icon(
-        isTyping ? Icons.send_rounded : Icons.mic_rounded,
-        color: const Color(0xFFAB873A),
-        size: 22,
-      ),
-      onPressed: () {
-        if (isTyping) {
-          _sendMessage(); // Kirim pesan teks saat mengetik
-        } else {
-          // Panggil fungsi rekam suara Anda di sini saat kosong
-        }
-      },
-    );
-  },
-),
+                            valueListenable: _isTyping,
+                            builder: (context, isTyping, child) {
+                              return IconButton(
+                                icon: Icon(
+                                  isTyping ? Icons.send_rounded : Icons.mic_rounded,
+                                  color: const Color(0xFFAB873A),
+                                  size: 22,
+                                ),
+                                onPressed: () {
+                                  if (isTyping) {
+                                    _sendMessage();
+                                  } else {
+                                    // Fungsi voice note jika ada
+                                  }
+                                },
+                              );
+                            },
+                          ),
                         ],
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
-                 
-                  // Tombol Popup Menu dengan lingkaran background Charcoal yang lebih kecil & melayang
-SizedBox(
-  width: 38,
-  height: 38,
-  child: Container(
-    decoration: const BoxDecoration(
-      color: Color(0xFF2A2E33), // Background lingkaran Charcoal
-      shape: BoxShape.circle,
-    ),
-    child: PopupMenuButton<int>(
-      tooltip: 'Opsi Lampiran',
-      color: const Color(0xFF2A2E33), // Latar belakang menu popup
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      position: PopupMenuPosition.over, // Memunculkan menu tepat di atas tombol
-      offset: const Offset(0, -115),     // Menggeser posisi popup ke atas agar tidak menutupi bar input
-      padding: EdgeInsets.zero,          // Menghilangkan padding bawaan agar ikon pas di tengah
-      icon: const Icon(Icons.more_vert, color: Colors.white, size: 20), // Ikon putih diperkecil
-      onSelected: (value) {
-        if (value == 0) {
-          _pickFile(); // Panggil fungsi file Anda
-        } else if (value == 1) {
-          _openCamera(); // Panggil fungsi kamera Anda
-        }
-      },
-      itemBuilder: (context) => [
-        PopupMenuItem<int>(
-          value: 0,
-          child: Row(
-            children: const [
-              Icon(Icons.attach_file_rounded, color: Color(0xFFAB873A), size: 20), // Ikon Amber
-              SizedBox(width: 12),
-              Text('Kirim Dokumen/File', style: TextStyle(color: Colors.white, fontSize: 14)), // Teks Putih
-            ],
-          ),
-        ),
-        PopupMenuItem<int>(
-          value: 1,
-          child: Row(
-            children: const [
-              Icon(Icons.camera_alt_outlined, color: Color(0xFFAB873A), size: 20), // Ikon Amber
-              SizedBox(width: 12),
-              Text('Kamera', style: TextStyle(color: Colors.white, fontSize: 14)), // Teks Putih
-            ],
-          ),
-        ),
-      ],
-    ),
-  ),
-),
+                
+                  // Tombol Popup Menu Lampiran
+                  SizedBox(
+                    width: 38,
+                    height: 38,
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF2A2E33),
+                        shape: BoxShape.circle,
+                      ),
+                      child: PopupMenuButton<int>(
+                        tooltip: 'Opsi Lampiran',
+                        color: const Color(0xFF2A2E33),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        position: PopupMenuPosition.over,
+                        offset: const Offset(0, -115),
+                        padding: EdgeInsets.zero,
+                        icon: const Icon(Icons.more_vert, color: Colors.white, size: 20),
+                        onSelected: (value) {
+                          if (value == 0) {
+                            _pickFile();
+                          } else if (value == 1) {
+                            _openCamera();
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          PopupMenuItem<int>(
+                            value: 0,
+                            child: Row(
+                              children: const [
+                                Icon(Icons.attach_file_rounded, color: Color(0xFFAB873A), size: 20),
+                                SizedBox(width: 12),
+                                Text('Kirim Dokumen/File', style: TextStyle(color: Colors.white, fontSize: 14)),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem<int>(
+                            value: 1,
+                            child: Row(
+                              children: const [
+                                Icon(Icons.camera_alt_outlined, color: Color(0xFFAB873A), size: 20),
+                                SizedBox(width: 12),
+                                Text('Kamera', style: TextStyle(color: Colors.white, fontSize: 14)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
