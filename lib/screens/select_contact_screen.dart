@@ -110,8 +110,7 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
                   );
                 } else if (!isGroup && name.isNotEmpty && targetId.isNotEmpty && currentUser != null) {
                   try {
-                    // Karena ID Angka Unik dijadikan Document ID di koleksi 'users',
-                    // kita bisa langsung mencarinya dengan cepat via .doc(targetId)
+                    // Cek apakah ID Angka Unik terdaftar di koleksi 'users'
                     var targetDoc = await FirebaseFirestore.instance
                         .collection('users')
                         .doc(targetId)
@@ -120,7 +119,9 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
                     if (targetDoc.exists) {
                       var targetData = targetDoc.data()!;
                       String targetUid = targetData['uid'] ?? '';
-                      String targetName = targetData['name'] ?? name;
+
+                      // MENGGUNAKAN 'name' DARI INPUT KOTAK DIALOG, BUKAN DARI FIRESTORE
+                      String contactName = name;
 
                       // Simpan ke subkoleksi 'contacts' milik user yang sedang login
                       await FirebaseFirestore.instance
@@ -131,7 +132,7 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
                           .set({
                             'uid': targetUid,
                             'numericId': targetId,
-                            'name': targetName,
+                            'name': contactName, // Menggunakan nama ketikan sendiri
                             'status': 'Tersedia',
                             'timestamp': FieldValue.serverTimestamp(),
                           });
@@ -141,7 +142,7 @@ class _SelectContactScreenState extends State<SelectContactScreen> {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             backgroundColor: Colors.green,
-                            content: Text('Kontak "$targetName" berhasil ditambahkan!'),
+                            content: Text('Kontak "$contactName" berhasil ditambahkan!'),
                           ),
                         );
                       }
