@@ -44,7 +44,7 @@ class _ProfileEndDrawerState extends State<ProfileEndDrawer> {
   final _firestore = FirebaseFirestore.instance;
   bool _isFavorite = false;
   bool _isHiddenStatus = false;
-  bool _isLoadingStatus = true; // Indikator pemuatan status
+  bool _isLoadingStatus = true;
   late String _numericId;
   String? _resolvedTargetUid;
 
@@ -52,9 +52,40 @@ class _ProfileEndDrawerState extends State<ProfileEndDrawer> {
   void initState() {
     super.initState();
     _numericId = widget.receiverUid?.isNotEmpty == true ? widget.receiverUid! : widget.chatId;
-    _resolvedTargetUid = widget.receiverUid;
     _loadInitialData();
     _fetchContactNumericId();
+  }
+
+  // 🟢 Fungsi terpusat untuk mendapatkan ID target yang konsisten
+  Future<String> _getTargetUid() async {
+    if (widget.receiverUid != null && widget.receiverUid!.isNotEmpty) {
+      return widget.receiverUid!;
+    }
+    
+    final user = _auth.currentUser;
+    if (user != null && widget.chatId.contains('_')) {
+      final parts = widget.chatId.split('_');
+      for (var part in parts) {
+        if (part != user.uid && part.isNotEmpty) {
+          return part;
+        }
+      }
+    }
+
+    try {
+      final chat = await _firestore.collection('chats')
+          .where('room', isEqualTo: widget.chatId)
+          .where('senderUid', isNotEqualTo: user?.uid)
+          .limit(1)
+          .get();
+      if (chat.docs.isNotEmpty) {
+        return chat.docs.first.data()['senderUid'];
+      }
+    } catch (e) {
+      debugPrint("Error getting target UID: $e");
+    }
+
+    return widget.chatId;
   }
 
   void _loadInitialData() async {
@@ -62,19 +93,9 @@ class _ProfileEndDrawerState extends State<ProfileEndDrawer> {
     if (user == null) return;
 
     try {
-      // Jika receiverUid kosong, cari targetUid dari koleksi chats terlebih dahulu
-      if (_resolvedTargetUid == null || _resolvedTargetUid!.isEmpty) {
-        final chat = await _firestore.collection('chats')
-            .where('room', isEqualTo: widget.chatId)
-            .where('senderUid', isNotEqualTo: user.uid)
-            .limit(1)
-            .get();
-        if (chat.docs.isNotEmpty) {
-          _resolvedTargetUid = chat.docs.first.data()['senderUid'];
-        }
-      }
-
+      _resolvedTargetUid = await _getTargetUid();
       final doc = await _firestore.collection('users').doc(user.uid).get();
+      
       if (doc.exists && mounted) {
         final data = doc.data()!;
         List favorites = data['favoriteRooms'] ?? [];
@@ -82,10 +103,8 @@ class _ProfileEndDrawerState extends State<ProfileEndDrawer> {
 
         setState(() {
           _isFavorite = favorites.contains(widget.chatId);
-          if (_resolvedTargetUid != null) {
-            _isHiddenStatus = hiddenList.contains(_resolvedTargetUid);
-          }
-          _isLoadingStatus = false; // Data selesai dimuat
+          _isHiddenStatus = hiddenList.contains(_resolvedTargetUid);
+          _isLoadingStatus = false;
         });
       }
     } catch (e) {
@@ -119,9 +138,9 @@ class _ProfileEndDrawerState extends State<ProfileEndDrawer> {
     final user = _auth.currentUser;
     if (user == null) return;
     
-    final targetUid = _resolvedTargetUid ?? widget.receiverUid ?? widget.chatId;
+    // Menggunakan fungsi _getTargetUid() yang sama persis
+    final targetUid = _resolvedTargetUid ?? await _getTargetUid();
 
-    // 🔥 Optimistic Update: Ubah state lokal seketika agar tombol langsung merespons
     setState(() => _isHiddenStatus = value);
 
     try {
@@ -131,8 +150,8 @@ class _ProfileEndDrawerState extends State<ProfileEndDrawer> {
       
       _showSnackBar(value ? 'Status disembunyikan dari kontak ini' : 'Status ditampilkan kembali');
     } catch (e) {
-      // Rollback jika gagal menyimpan ke Firestore
       setState(() => _isHiddenStatus = !value);
+      debugPrint("ERROR DETAIL FIREBASE: $e");
       _showSnackBar('Gagal memperbarui status');
     }
   }
